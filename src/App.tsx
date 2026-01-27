@@ -2,10 +2,21 @@ import { useState } from "react";
 import reactLogo from "./assets/react.svg";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
+import { AcpChat } from "./features/acp-chat";
+import type { AgentSpec } from "tauri-acp";
+
+// Configure your ACP agent here
+// Example for Codex: { id: "codex", executable: "codex", args: ["--full-auto"] }
+const agentSpec: AgentSpec = {
+  id: "codex",
+  executable: "codex",
+  args: ["--full-auto"],
+};
 
 function App() {
   const [greetMsg, setGreetMsg] = useState("");
   const [name, setName] = useState("");
+  const [showChat, setShowChat] = useState(false);
 
   async function greet() {
     // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
@@ -44,6 +55,18 @@ function App() {
         <button type="submit">Greet</button>
       </form>
       <p>{greetMsg}</p>
+
+      <hr style={{ margin: "2rem 0", width: "100%" }} />
+
+      <button type="button" onClick={() => setShowChat(!showChat)}>
+        {showChat ? "Hide ACP Chat" : "Show ACP Chat"}
+      </button>
+
+      {showChat && (
+        <div style={{ marginTop: "1rem", width: "100%", maxWidth: "600px" }}>
+          <AcpChat agentSpec={agentSpec} />
+        </div>
+      )}
     </main>
   );
 }
