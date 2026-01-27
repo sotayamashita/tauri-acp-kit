@@ -6,7 +6,9 @@ import { setupTauriMocks, cleanupTauriMocks } from "./test/tauri-mocks";
 describe("App", () => {
   beforeEach(() => {
     setupTauriMocks({
-      greet: (args) => `Hello, ${(args as { name: string }).name}!`,
+      "plugin:acp|acp_spawn_agent": () => "test-agent-id",
+      "plugin:acp|acp_start_session": () => "test-session-id",
+      "plugin:acp|acp_terminate_agent": () => undefined,
     });
   });
 
@@ -14,8 +16,8 @@ describe("App", () => {
     cleanupTauriMocks();
   });
 
-  it("renders the welcome message", () => {
+  it("renders the ACP Chat", () => {
     render(<App />);
-    expect(screen.getByText("Welcome to Tauri + React")).toBeInTheDocument();
+    expect(screen.getByText("ACP Chat")).toBeInTheDocument();
   });
 });
