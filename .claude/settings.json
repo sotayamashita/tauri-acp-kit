@@ -1,0 +1,48 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm lint)",
+      "Bash(pnpm run lint)",
+      "Bash(pnpm lint:fix)",
+      "Bash(pnpm run lint:fix)",
+      "Bash(pnpm fmt)",
+      "Bash(pnpm run fmt)",
+      "Bash(pnpm fmt:check)",
+      "Bash(pnpm run fmt:check)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "(tool == \"Edit\" || tool == \"Write\") && tool_input.file_path matches \"^src/.*\\\\.(ts|tsx|js|jsx)$\"",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "mise x -- node \"$CLAUDE_PROJECT_DIR/.claude/hooks/oxlint.js\""
+          }
+        ],
+        "description": "Run oxlint --fix on src/ JS/TS files after edits"
+      },
+      {
+        "matcher": "(tool == \"Edit\" || tool == \"Write\") && tool_input.file_path matches \"^src/.*\\\\.(ts|tsx|js|jsx)$\"",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "mise x -- node \"$CLAUDE_PROJECT_DIR/.claude/hooks/oxfmt.js\""
+          }
+        ],
+        "description": "Run oxfmt on src/ JS/TS files after edits"
+      },
+      {
+        "matcher": "(tool == \"Edit\" || tool == \"Write\") && tool_input.file_path matches \"^src/.*\\\\.(ts|tsx)$\"",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "mise x -- node \"$CLAUDE_PROJECT_DIR/.claude/hooks/tsc.js\""
+          }
+        ],
+        "description": "Run tsc --noEmit on src/ TS files after edits"
+      }
+    ]
+  }
+}
