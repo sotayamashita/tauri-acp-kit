@@ -5,6 +5,7 @@ pub const ACP_EVENT_CHANNEL: &str = "acp://event";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[allow(dead_code)]
 pub enum AcpEvent {
     Delta {
         session_id: String,

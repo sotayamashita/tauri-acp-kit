@@ -8,6 +8,7 @@ use tokio::sync::RwLock;
 pub struct Session {
     pub id: String,
     pub agent_id: String,
+    #[allow(dead_code)]
     pub cwd: String,
 }
 
@@ -72,6 +73,7 @@ impl PluginState {
             .ok_or_else(|| Error::SessionNotFound(session_id.to_string()))
     }
 
+    #[allow(dead_code)]
     pub async fn remove_session(&self, session_id: &str) -> Option<Session> {
         let mut sessions = self.sessions.write().await;
         sessions.remove(session_id)

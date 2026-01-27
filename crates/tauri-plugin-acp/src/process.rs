@@ -11,6 +11,7 @@ use tokio::sync::{mpsc, oneshot, RwLock};
 /// A clonable handle to send requests to an agent
 #[derive(Clone)]
 pub struct AgentHandle {
+    #[allow(dead_code)]
     pub agent_id: String,
     request_tx: mpsc::Sender<(JsonRpcRequest, oneshot::Sender<JsonRpcResponse>)>,
     next_request_id: Arc<RwLock<i64>>,
@@ -41,6 +42,7 @@ impl AgentHandle {
 
 pub struct AgentProcess {
     pub id: String,
+    #[allow(dead_code)]
     pub spec: AgentSpec,
     child: Child,
     handle: AgentHandle,
