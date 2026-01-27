@@ -20,6 +20,9 @@ importers:
       react-dom:
         specifier: ^19.1.0
         version: 19.2.4(react@19.2.4)
+      tauri-acp:
+        specifier: workspace:*
+        version: link:packages/tauri-acp
     devDependencies:
       '@commitlint/cli':
         specifier: ^20.3.1
@@ -81,6 +84,16 @@ importers:
       vitest:
         specifier: ^4.0.18
         version: 4.0.18(@types/node@25.0.10)(jiti@2.6.1)(jsdom@27.4.0)(yaml@2.8.2)
+
+  packages/tauri-acp:
+    dependencies:
+      '@tauri-apps/api':
+        specifier: ^2
+        version: 2.9.1
+    devDependencies:
+      typescript:
+        specifier: ~5.8
+        version: 5.8.3
 
 packages:
 
