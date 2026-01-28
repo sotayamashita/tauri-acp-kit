@@ -33,12 +33,6 @@ If you have access to Codex internals, schemas may be exported via a command:
 
     codex --export-schema > codex-schema.json
 
-### Current schema location
-
-For this project, schemas were obtained and placed at:
-
-    /tmp/codex-schema/
-
 Key files:
 
 - `ClientRequest.json` - All request methods the client can send

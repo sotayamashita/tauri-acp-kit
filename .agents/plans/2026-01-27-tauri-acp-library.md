@@ -61,6 +61,19 @@ Deliverables:
   - Created `docs/codex-app-server-protocol.md` (8.6KB)
   - Documents: protocol overview, request/response formats, notification methods, InputItem schema
   - Includes: how to obtain schema files, implementation notes for Rust/TypeScript
+- [x] (2026-01-28 18:30JST) Phase 8: Modern Chat UI refinement (COMPLETED)
+  - Reference: langchain-ai/agent-chat-ui patterns via DeepWiki
+  - Improvements implemented:
+    - Markdown rendering (react-markdown + remark-gfm)
+    - Code syntax highlighting (react-syntax-highlighter + oneDark theme)
+    - Typing indicator animation (3-dot bounce)
+    - Auto-scroll to bottom on new messages
+    - Copy code button with feedback
+    - Refined visual design (gradient backgrounds, smooth animations, modern spacing)
+    - Auto-resize textarea for multi-line input
+    - Welcome screen for empty state
+    - Message timestamps
+    - Avatar icons for user/assistant
 
 ## Surprises & Discoveries
 
@@ -226,7 +239,7 @@ Deliverables:
 
 The current repository is a Tauri v2 + React 19 + TypeScript application for BPMN diagram editing. The following structure will be added:
 
-    bpmn-editor/
+    tauri-acp-kit/
     ├── Cargo.toml                    # NEW: Cargo workspace root
     ├── crates/
     │   └── tauri-plugin-acp/         # NEW: Rust plugin
