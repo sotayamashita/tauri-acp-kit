@@ -1,7 +1,9 @@
 use crate::error::Error;
 use crate::events::{emit_event, AcpEvent};
 use crate::framing::{JsonlReader, JsonlWriter};
-use crate::protocol::{AgentSpec, JsonRpcMessage, JsonRpcNotification, JsonRpcRequest, JsonRpcResponse};
+use crate::protocol::{
+    AgentSpec, JsonRpcMessage, JsonRpcNotification, JsonRpcRequest, JsonRpcResponse,
+};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::{AppHandle, Runtime};
@@ -25,7 +27,11 @@ pub struct AgentHandle {
 }
 
 impl AgentHandle {
-    pub async fn send_request(&self, method: &str, params: serde_json::Value) -> Result<JsonRpcResponse, Error> {
+    pub async fn send_request(
+        &self,
+        method: &str,
+        params: serde_json::Value,
+    ) -> Result<JsonRpcResponse, Error> {
         let id = {
             let mut next_id = self.next_request_id.write().await;
             let id = *next_id;
@@ -47,7 +53,11 @@ impl AgentHandle {
     }
 
     /// Send a notification (fire-and-forget, no response expected)
-    pub async fn send_notification(&self, method: &str, params: serde_json::Value) -> Result<(), Error> {
+    pub async fn send_notification(
+        &self,
+        method: &str,
+        params: serde_json::Value,
+    ) -> Result<(), Error> {
         let notification = JsonRpcNotification {
             jsonrpc: Some("2.0".to_string()),
             method: method.to_string(),
@@ -107,15 +117,18 @@ impl AgentProcess {
 
         tracing::debug!(agent_id = %agent_id, "Process spawned, capturing stdio");
 
-        let stdin = child.stdin.take().ok_or_else(|| {
-            Error::ProcessSpawnFailed("Failed to capture stdin".to_string())
-        })?;
-        let stdout = child.stdout.take().ok_or_else(|| {
-            Error::ProcessSpawnFailed("Failed to capture stdout".to_string())
-        })?;
-        let stderr = child.stderr.take().ok_or_else(|| {
-            Error::ProcessSpawnFailed("Failed to capture stderr".to_string())
-        })?;
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| Error::ProcessSpawnFailed("Failed to capture stdin".to_string()))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| Error::ProcessSpawnFailed("Failed to capture stdout".to_string()))?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| Error::ProcessSpawnFailed("Failed to capture stderr".to_string()))?;
         let pending_requests: Arc<RwLock<HashMap<i64, oneshot::Sender<JsonRpcResponse>>>> =
             Arc::new(RwLock::new(HashMap::new()));
         let (message_tx, message_rx) = mpsc::channel::<OutgoingMessage>(32);
@@ -282,25 +295,35 @@ impl AgentProcess {
                     notification.params.get("delta").and_then(|v| v.as_str()),
                 ) {
                     tracing::debug!(thread_id = %thread_id, delta_len = delta.len(), "Agent message delta");
-                    emit_event(app, AcpEvent::Delta {
-                        session_id: thread_id.to_string(),
-                        text: delta.to_string(),
-                    });
+                    emit_event(
+                        app,
+                        AcpEvent::Delta {
+                            session_id: thread_id.to_string(),
+                            text: delta.to_string(),
+                        },
+                    );
                 }
             }
             // Codex: turn completed
             "turn/completed" => {
-                if let Some(thread_id) = notification.params.get("threadId").and_then(|v| v.as_str()) {
+                if let Some(thread_id) =
+                    notification.params.get("threadId").and_then(|v| v.as_str())
+                {
                     tracing::debug!(thread_id = %thread_id, "Turn completed");
-                    emit_event(app, AcpEvent::Complete {
-                        session_id: thread_id.to_string(),
-                        stop_reason: "end_turn".to_string(),
-                    });
+                    emit_event(
+                        app,
+                        AcpEvent::Complete {
+                            session_id: thread_id.to_string(),
+                            stop_reason: "end_turn".to_string(),
+                        },
+                    );
                 }
             }
             // Codex: turn started
             "turn/started" => {
-                if let Some(thread_id) = notification.params.get("threadId").and_then(|v| v.as_str()) {
+                if let Some(thread_id) =
+                    notification.params.get("threadId").and_then(|v| v.as_str())
+                {
                     tracing::debug!(thread_id = %thread_id, "Turn started");
                 }
             }
@@ -317,7 +340,11 @@ impl AgentProcess {
                 tracing::debug!("Config warning received");
             }
             _ => {
-                tracing::debug!("Unknown notification: {} params: {:?}", notification.method, notification.params);
+                tracing::debug!(
+                    "Unknown notification: {} params: {:?}",
+                    notification.method,
+                    notification.params
+                );
             }
         }
     }
