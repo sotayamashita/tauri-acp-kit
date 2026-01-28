@@ -5,8 +5,11 @@
  *              Errors are output to stderr so Claude can see and fix them.
  * @see https://doc.rust-lang.org/cargo/commands/cargo-fmt.html
  */
-const { execSync } = require("child_process");
-const fs = require("fs");
+import { execSync } from "node:child_process";
+import fs from "node:fs";
+
+/** @constant {RegExp} Pattern to match Rust files in src-tauri/ or crates/ */
+const FILE_PATTERN = /\/(src-tauri|crates)\/.*\.rs$/;
 
 let data = "";
 process.stdin.on("data", (chunk) => (data += chunk));
@@ -15,7 +18,13 @@ process.stdin.on("end", () => {
   const input = JSON.parse(data);
   const filePath = input.tool_input?.file_path;
 
-  if (filePath && fs.existsSync(filePath)) {
+  // Skip if file doesn't match pattern
+  if (!filePath || !FILE_PATTERN.test(filePath)) {
+    console.log(data);
+    return;
+  }
+
+  if (fs.existsSync(filePath)) {
     try {
       execSync(`cargo fmt -- "${filePath}"`, {
         encoding: "utf8",

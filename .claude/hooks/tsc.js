@@ -5,15 +5,18 @@
  *              Only errors related to the edited file are shown (max 10 lines).
  * @see https://www.typescriptlang.org/docs/handbook/compiler-options.html
  */
-const { execSync } = require("child_process");
-const fs = require("fs");
-const path = require("path");
+import { execSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
 
 /** @constant {string} Path to tsc binary */
 const TSC_BIN = "./node_modules/.bin/tsc";
 
 /** @constant {number} Maximum number of error lines to show */
 const MAX_ERROR_LINES = 10;
+
+/** @constant {RegExp} Pattern to match TS files in src/ or packages/ */
+const FILE_PATTERN = /\/(src|packages)\/.*\.(ts|tsx)$/;
 
 /**
  * Find the nearest directory containing tsconfig.json
@@ -38,7 +41,13 @@ process.stdin.on("end", () => {
   const input = JSON.parse(data);
   const filePath = input.tool_input?.file_path;
 
-  if (filePath && fs.existsSync(filePath)) {
+  // Skip if file doesn't match pattern
+  if (!filePath || !FILE_PATTERN.test(filePath)) {
+    console.log(data);
+    return;
+  }
+
+  if (fs.existsSync(filePath)) {
     const tsConfigDir = findTsConfigDir(filePath);
 
     if (tsConfigDir) {

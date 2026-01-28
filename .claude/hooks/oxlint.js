@@ -5,11 +5,14 @@
  *              Errors are output to stderr so Claude can see and fix them.
  * @see https://oxc.rs/docs/guide/usage/linter
  */
-const { execSync } = require("child_process");
-const fs = require("fs");
+import { execSync } from "node:child_process";
+import fs from "node:fs";
 
 /** @constant {string} Path to oxlint binary */
 const OXLINT_BIN = "./node_modules/.bin/oxlint";
+
+/** @constant {RegExp} Pattern to match JS/TS files in src/ or packages/ */
+const FILE_PATTERN = /\/(src|packages)\/.*\.(ts|tsx|js|jsx)$/;
 
 let data = "";
 process.stdin.on("data", (chunk) => (data += chunk));
@@ -18,7 +21,13 @@ process.stdin.on("end", () => {
   const input = JSON.parse(data);
   const filePath = input.tool_input?.file_path;
 
-  if (filePath && fs.existsSync(filePath)) {
+  // Skip if file doesn't match pattern
+  if (!filePath || !FILE_PATTERN.test(filePath)) {
+    console.log(data);
+    return;
+  }
+
+  if (fs.existsSync(filePath)) {
     try {
       execSync(`${OXLINT_BIN} --fix "${filePath}"`, {
         encoding: "utf8",
