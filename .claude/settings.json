@@ -1,6 +1,8 @@
 {
   "permissions": {
     "allow": [
+      "Bash(pnpm install:*)",
+      "Bash(pnpm build:*)",
       "Bash(pnpm lint)",
       "Bash(pnpm run lint)",
       "Bash(pnpm lint:fix)",
@@ -8,7 +10,11 @@
       "Bash(pnpm fmt)",
       "Bash(pnpm run fmt)",
       "Bash(pnpm fmt:check)",
-      "Bash(pnpm run fmt:check)"
+      "Bash(pnpm run fmt:check)",
+      "Bash(cargo check:*)",
+      "Bash(cargo fmt)",
+      "Bash(cargo build:*)",
+      "Bash(cargo test:*)"
     ]
   },
   "hooks": {
@@ -42,6 +48,16 @@
           }
         ],
         "description": "Run tsc --noEmit on src/ TS files after edits"
+      },
+      {
+        "matcher": "(tool == \"Edit\" || tool == \"Write\") && tool_input.file_path matches \"\\.rs$\"",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "mise x -- node \"$CLAUDE_PROJECT_DIR/.claude/hooks/cargo-fmt.js\""
+          }
+        ],
+        "description": "Run cargo fmt on Rust files after edits"
       }
     ]
   }
