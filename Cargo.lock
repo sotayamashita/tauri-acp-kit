@@ -272,19 +272,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bpmn-editor"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-acp",
- "tauri-plugin-opener",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "brotli"
 version = "8.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3543,6 +3530,19 @@ dependencies = [
  "webview2-com",
  "window-vibrancy",
  "windows",
+]
+
+[[package]]
+name = "tauri-acp-kit"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-acp",
+ "tauri-plugin-opener",
+ "tracing-subscriber",
 ]
 
 [[package]]
