@@ -157,5 +157,12 @@ export function useAcpChat(options: UseAcpChatOptions): UseAcpChatReturn {
     }
   }, []);
 
-  return { messages, input, setInput, isLoading, error, isReady, append, stop };
+  const reset = useCallback(() => {
+    setMessages([]);
+    setInput("");
+    setError(null);
+    streamingContentRef.current = "";
+  }, []);
+
+  return { messages, input, setInput, isLoading, error, isReady, append, stop, reset };
 }

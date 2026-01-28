@@ -18,6 +18,6 @@ describe("App", () => {
 
   it("renders the ACP Chat", () => {
     render(<App />);
-    expect(screen.getByText("ACP Chat")).toBeInTheDocument();
+    expect(screen.getByText("New Thread")).toBeInTheDocument();
   });
 });

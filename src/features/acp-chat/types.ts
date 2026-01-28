@@ -22,4 +22,5 @@ export interface UseAcpChatReturn {
   isReady: boolean;
   append: (content: string) => Promise<void>;
   stop: () => Promise<void>;
+  reset: () => void;
 }

@@ -10,6 +10,9 @@ beforeAll(() => {
       getRandomValues: (buffer: NodeJS.ArrayBufferView) => randomFillSync(buffer),
     },
   });
+
+  // Mock scrollIntoView for jsdom (not implemented)
+  Element.prototype.scrollIntoView = vi.fn();
 });
 
 // Cleanup after each test
