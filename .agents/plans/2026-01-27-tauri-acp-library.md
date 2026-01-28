@@ -39,6 +39,28 @@ Deliverables:
   - Registered plugin in src-tauri/src/lib.rs
   - Added tauri-acp workspace dependency to package.json
   - cargo build, pnpm build, cargo test all passed
+- [x] (2026-01-28 16:10JST) Phase 7: Codex protocol debugging and fixes (COMPLETED)
+  - Fixed: jsonrpc field made optional in JsonRpcResponse/JsonRpcNotification
+  - Fixed: Added tracing-subscriber for debug logging
+  - Fixed: Added stderr reading task for agent process diagnostics
+  - Fixed: Changed method names to Codex-specific ones (newConversation, sendUserMessage)
+  - Fixed: InputItem format corrected to {type, data: {text}}
+  - Fixed: Notification handlers for item/agentMessage/delta and turn/completed
+  - Fixed: Unique agent IDs to prevent React StrictMode collision
+  - Added: Debug logging for event emission (Rust) and event reception (TypeScript)
+  - Fixed: Added `initialized` notification after initialize response (2026-01-28 11:45JST)
+    - Added `send_notification` method to AgentHandle
+    - Updated writer_task to handle both requests and notifications
+    - This completes the required handshake sequence
+  - Fixed: Changed `newConversation` to `thread/start` (2026-01-28 15:55JST)
+    - CRITICAL: `newConversation` does NOT properly initialize AI session
+    - `thread/start` is required for `turn/start` to trigger AI responses
+    - Verified with standalone Node.js test: `item/agentMessage/delta` now received
+  - VERIFIED: Streaming delta events now reach frontend UI (2026-01-28 16:10JST)
+- [x] (2026-01-28 10:07JST) Documentation: Created Codex protocol reference
+  - Created `docs/codex-app-server-protocol.md` (8.6KB)
+  - Documents: protocol overview, request/response formats, notification methods, InputItem schema
+  - Includes: how to obtain schema files, implementation notes for Rust/TypeScript
 
 ## Surprises & Discoveries
 
@@ -49,6 +71,86 @@ Deliverables:
 - (2026-01-27 18:46JST) Returning Future from `with_agent` closure causes lifetime error
   - Error: `lifetime may not live long enough`
   - Resolution: Introduced `AgentHandle` struct to make `request_tx` clonable and usable independently
+
+- (2026-01-28 09:40JST) Codex app-server omits `jsonrpc` field in responses
+  - Observation: Responses are `{"id":1,"result":{...}}` without `"jsonrpc":"2.0"`
+  - Resolution: Made `jsonrpc` field `Option<String>` with `#[serde(default)]` in protocol.rs
+  - Files: `crates/tauri-plugin-acp/src/protocol.rs` (JsonRpcResponse, JsonRpcNotification)
+
+- (2026-01-28 09:43JST) Codex uses different method names than generic ACP
+  - Methods available (from error message): `initialize`, `newConversation`, `sendUserMessage`, `interruptConversation`, etc.
+  - NOT available: `prompt`, `cancel` (these were our initial assumptions)
+  - Resolution: Updated commands.rs to use Codex-specific method names
+  - Schema location: `/tmp/codex-schema/ClientRequest.json`
+
+- (2026-01-28 09:50JST) Codex sendUserMessage requires specific InputItem format
+  - Error sequence: `missing field 'items'` → `missing field 'data'` → success
+  - Correct format:
+    {
+    "conversationId": "...",
+    "items": [{
+    "type": "text",
+    "data": { "text": "user message" }
+    }]
+    }
+  - Schema: `/tmp/codex-schema/ClientRequest.json` → SendUserMessageParams → InputItem
+
+- (2026-01-28 09:45JST) React StrictMode causes double agent spawn with same ID
+  - Symptom: Agent stdout closes immediately after spawn
+  - Cause: Second agent with same ID overwrites first in HashMap, dropping first AgentProcess
+  - Resolution: Generate unique agent IDs with UUID suffix: `format!("{}-{}", spec.id, uuid::Uuid::new_v4())`
+  - File: `crates/tauri-plugin-acp/src/commands.rs` (acp_spawn_agent)
+
+- (2026-01-28 09:42JST) Tauri GUI apps don't inherit shell PATH
+  - Symptom: `codex` command not found when spawning agent
+  - Resolution: Use full path `/opt/homebrew/bin/codex` in AgentSpec.executable
+  - File: `src/App.tsx`
+
+- (2026-01-28 09:55JST) Codex notification methods differ from assumed ACP
+  - Streaming delta: `item/agentMessage/delta` (params: delta, threadId, turnId, itemId)
+  - Turn complete: `turn/completed` (params: threadId, turn)
+  - Other: `turn/started`, `item/started`, `item/completed`, `configWarning`
+  - Schema: `/tmp/codex-schema/ServerNotification.json`
+  - Resolution: Updated handle_notification in process.rs
+
+- (2026-01-28 10:22JST) Codex has v1 and v2 protocol versions
+  - v1: `sendUserTurn` with `conversationId`, `items` (complex InputItem format)
+  - v2: `turn/start` with `threadId`, `input` (simpler UserInput format)
+  - v1 InputItem: `{"type": "text", "data": {"text": "..."}}`
+  - v2 UserInput: `{"type": "text", "text": "..."}`
+  - Resolution: Switched to v2 protocol for simplicity
+  - Reference: DeepWiki analysis of openai/codex and zed-industries/codex-acp
+
+- (2026-01-28 11:30JST) **CRITICAL: Missing `initialized` notification in handshake**
+  - Discovery: DeepWiki analysis of openai/codex revealed required initialization sequence
+  - Required sequence:
+    1. Send `initialize` request → receive response ✅ (implemented)
+    2. Send `initialized` notification (NO id, fire-and-forget) ❌ (MISSING!)
+    3. Send `thread/start` or `newConversation` ✅
+    4. Send `turn/start` ✅
+  - Impact: Without `initialized` notification, subsequent requests may not trigger AI response
+  - Resolution: Add `initialized` notification after `initialize` response in commands.rs
+  - Reference: openai/codex MessageProcessor validates initialization state
+
+- (2026-01-28 11:30JST) zed-industries/codex-acp uses codex-core directly, NOT app-server
+  - Discovery: DeepWiki analysis revealed architectural difference
+  - zed-industries/codex-acp: Links codex-core Rust library directly
+  - Our implementation: Uses Codex CLI `app-server` mode via stdio JSON-RPC
+  - Implication: Their code is not directly applicable as reference for our stdio protocol
+  - Alternative references: openai/codex `app-server-test-client`, `debug-client`
+
+- (2026-01-28 15:55JST) **CRITICAL: `thread/start` required instead of `newConversation`**
+  - Discovery: Standalone Node.js test showed `item/agentMessage/delta` is received with correct flow
+  - Correct flow:
+    1. `initialize` request → response
+    2. `initialized` notification (no response)
+    3. `thread/start` request → response (returns `thread.id`) ← THIS WAS MISSING
+    4. `turn/start` request with `threadId`
+  - Wrong flow (what we had):
+    1. `initialize` → `newConversation` → `turn/start`
+  - Impact: `newConversation` returns a `conversationId` but does NOT properly initialize AI session
+  - Resolution: Changed to use `thread/start` instead of `newConversation`
+  - Evidence: Node.js test received `"delta":"Hello"` successfully
 
 ## Decision Log
 
@@ -76,14 +178,47 @@ Deliverables:
   Rationale: A visual UI makes it easier to verify streaming, cancellation, and error handling. Follows the existing src/ structure convention.
   Date/Author: 2026-01-27 / User selection
 
+- Decision: Implement Codex-specific protocol rather than generic ACP
+  Rationale: Codex app-server uses its own protocol variant with methods like `newConversation`, `sendUserMessage`. Schema files available at `/tmp/codex-schema/`. Future refactoring can abstract to support multiple agents.
+  Date/Author: 2026-01-28 / Discovery during debugging
+
+- Decision: Use tracing-subscriber for Rust-side debugging
+  Rationale: Essential for diagnosing stdio communication issues. Enabled via RUST_LOG env or default filter `tauri_plugin_acp=debug`.
+  Date/Author: 2026-01-28 / Implementation requirement
+
+- Decision: Use `thread/start` instead of `newConversation` for session initialization
+  Rationale: `newConversation` returns a conversationId but does NOT properly initialize the AI session. `thread/start` is required for `turn/start` to trigger AI responses. Discovered through systematic debugging with standalone Node.js test.
+  Date/Author: 2026-01-28 / Discovery during debugging
+
+- Decision: Continue using app-server (stdio) instead of codex-core direct integration
+  Rationale: (1) Flexibility to support other agents (Claude Code, Goose) in future, (2) Process isolation prevents agent crashes from affecting app, (3) Implementation already working. codex-core would require Rust-only, Codex-specific implementation.
+  Date/Author: 2026-01-28 / User confirmation after analysis
+
 ## Outcomes & Retrospective
 
-- (2026-01-27 18:51JST) Implementation completed successfully
+- (2026-01-27 18:51JST) Initial implementation completed
   - All 6 phases completed
   - Rust plugin builds and tests pass (1 test, 5 warnings about unused fields reserved for future use)
   - TypeScript SDK typechecks pass
   - Chat UI integrated into bpmn-editor
   - Commit: `feat: add ACP (Agent Client Protocol) library for Tauri`
+
+- (2026-01-28 16:10JST) **Codex protocol debugging COMPLETED - Full E2E working!**
+  - Root cause identified: Missing `initialized` notification AND wrong method (`newConversation` vs `thread/start`)
+  - Correct initialization sequence discovered:
+    1. `initialize` request → response
+    2. `initialized` notification (fire-and-forget)
+    3. `thread/start` request → response (returns `thread.id`)
+    4. `turn/start` request → streaming notifications
+  - All streaming events now working:
+    - `item/agentMessage/delta` → Delta events reach frontend
+    - `turn/completed` → Complete events reach frontend
+  - Key learnings:
+    - Codex app-server protocol differs significantly from documented ACP
+    - `newConversation` ≠ `thread/start` (different behavior)
+    - `initialized` notification is REQUIRED (not optional)
+    - zed-industries/codex-acp uses codex-core directly (not app-server)
+  - Documentation created: `docs/codex-app-server-protocol.md`
 
 ## Context and Orientation
 
@@ -103,6 +238,8 @@ The current repository is a Tauri v2 + React 19 + TypeScript application for BPM
     │       ├── package.json
     │       ├── tsconfig.json
     │       └── src/
+    ├── docs/                          # NEW: Documentation
+    │   └── codex-app-server-protocol.md  # Codex protocol reference
     ├── src-tauri/                    # Existing: bpmn-editor backend
     │   ├── Cargo.toml               　# MODIFY: reference as workspace member
     │   └── src/lib.rs               　# MODIFY: register plugin
@@ -265,6 +402,37 @@ Response (stdout from agent):
 Notification (stdout from agent, no id):
 
     {"jsonrpc":"2.0","method":"delta","params":{"sessionId":"sess_123","text":"Hello"}}
+
+**Codex-Specific Protocol Details**
+
+Codex app-server uses a variant of JSON-RPC with the following characteristics:
+
+1.  **Response format**: Omits `jsonrpc` field (e.g., `{"id":1,"result":{...}}`)
+
+2.  **Request methods** (from `/tmp/codex-schema/ClientRequest.json`):
+    - `initialize` - Initial handshake
+    - `newConversation` - Create conversation, returns `conversationId`
+    - `sendUserMessage` - Send user message with InputItem array
+    - `interruptConversation` - Cancel ongoing generation
+
+3.  **sendUserMessage params format**:
+
+        {
+          "conversationId": "019c0215-...",
+          "items": [{
+            "type": "text",
+            "data": { "text": "Hello, how are you?" }
+          }]
+        }
+
+4.  **Notification methods** (from `/tmp/codex-schema/ServerNotification.json`):
+    - `item/agentMessage/delta` - Streaming text: `{delta, threadId, turnId, itemId}`
+    - `turn/completed` - Turn finished: `{threadId, turn}`
+    - `turn/started` - Turn began
+    - `item/started`, `item/completed` - Item lifecycle
+    - `configWarning` - Configuration warnings (non-blocking)
+
+5.  **threadId vs conversationId**: These are equivalent. The `newConversation` response contains `conversationId`, which is used as `threadId` in notifications.
 
 ## Plan of Work
 
@@ -916,7 +1084,17 @@ Expected tests:
 
 ## Artifacts and Notes
 
-(To be recorded during implementation with actual terminal output)
+### Documentation Created
+
+- `docs/codex-app-server-protocol.md` - Comprehensive Codex app-server protocol reference
+  - What: JSON-RPC protocol for Codex GUI integration
+  - How to obtain schema: From source or runtime extraction
+  - Schema location: `/tmp/codex-schema/` (ClientRequest.json, ServerNotification.json)
+  - Key methods: initialize, newConversation, sendUserMessage, interruptConversation
+  - Key notifications: item/agentMessage/delta, turn/completed
+  - InputItem format, error handling, implementation notes
+
+### Terminal Output Examples
 
 Example expected output for agent spawn:
 

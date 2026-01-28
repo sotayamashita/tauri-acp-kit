@@ -33,6 +33,7 @@ pub enum AcpEvent {
 }
 
 pub fn emit_event<R: Runtime>(app: &AppHandle<R>, event: AcpEvent) {
+    tracing::debug!("Emitting ACP event: {:?}", event);
     if let Err(e) = app.emit(ACP_EVENT_CHANNEL, &event) {
         tracing::error!("Failed to emit ACP event: {}", e);
     }

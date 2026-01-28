@@ -3,11 +3,10 @@ import { AcpChat } from "./features/acp-chat";
 import type { AgentSpec } from "tauri-acp";
 
 // Configure your ACP agent here
-// Example for Codex: { id: "codex", executable: "codex", args: ["--full-auto"] }
 const agentSpec: AgentSpec = {
   id: "codex",
-  executable: "codex",
-  args: ["--full-auto"],
+  executable: "/opt/homebrew/bin/codex",
+  args: ["app-server"],
 };
 
 function App() {

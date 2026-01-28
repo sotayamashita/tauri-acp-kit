@@ -31,7 +31,9 @@ pub struct JsonRpcRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JsonRpcResponse {
-    pub jsonrpc: String,
+    /// Optional for compatibility with servers that don't include the jsonrpc field
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub jsonrpc: Option<String>,
     pub id: JsonRpcId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub result: Option<serde_json::Value>,
@@ -41,7 +43,9 @@ pub struct JsonRpcResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JsonRpcNotification {
-    pub jsonrpc: String,
+    /// Optional for compatibility with servers that don't include the jsonrpc field
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub jsonrpc: Option<String>,
     pub method: String,
     #[serde(default, skip_serializing_if = "serde_json::Value::is_null")]
     pub params: serde_json::Value,

@@ -1,3 +1,5 @@
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -6,6 +8,15 @@ fn greet(name: &str) -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Initialize tracing with debug level for acp plugin
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "tauri_plugin_acp=debug,bpmn_editor=debug".into()),
+        )
+        .with(tracing_subscriber::fmt::layer())
+        .init();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_acp::init())

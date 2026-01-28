@@ -76,4 +76,39 @@ mod tests {
             _ => panic!("Expected request"),
         }
     }
+
+    #[tokio::test]
+    async fn test_parse_codex_response_without_jsonrpc() {
+        // Codex app-server returns responses without the jsonrpc field
+        let codex_response = r#"{"id":1,"result":{"userAgent":"codex/0.91.0"}}"#;
+
+        let mut reader = JsonlReader::new(codex_response.as_bytes());
+        let message = reader.read_message().await.unwrap().unwrap();
+
+        match message {
+            JsonRpcMessage::Response(resp) => {
+                assert!(resp.jsonrpc.is_none());
+                assert!(resp.result.is_some());
+                assert!(resp.error.is_none());
+            }
+            _ => panic!("Expected response, got {:?}", message),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_parse_response_with_jsonrpc() {
+        // Standard JSON-RPC 2.0 response
+        let standard_response = r#"{"jsonrpc":"2.0","id":1,"result":{"status":"ok"}}"#;
+
+        let mut reader = JsonlReader::new(standard_response.as_bytes());
+        let message = reader.read_message().await.unwrap().unwrap();
+
+        match message {
+            JsonRpcMessage::Response(resp) => {
+                assert_eq!(resp.jsonrpc, Some("2.0".to_string()));
+                assert!(resp.result.is_some());
+            }
+            _ => panic!("Expected response"),
+        }
+    }
 }

@@ -20,8 +20,10 @@ export function useAcpChat(options: UseAcpChatOptions): UseAcpChatReturn {
 
     const init = async () => {
       try {
+        console.log("[AcpChat] Spawning agent:", options.agentSpec);
         const agent = new AcpAgent();
         await agent.spawn(options.agentSpec);
+        console.log("[AcpChat] Agent spawned successfully");
 
         if (!mounted) {
           await agent.terminate();
@@ -30,8 +32,16 @@ export function useAcpChat(options: UseAcpChatOptions): UseAcpChatReturn {
 
         agentRef.current = agent;
 
+        // Subscribe to ALL agent events for debugging
+        const globalUnlisten = await agent.onEvent((event) => {
+          console.log("[AcpChat] Global event received:", event);
+        });
+        unlistenersRef.current.push(globalUnlisten);
+
         const cwd = options.cwd || ".";
+        console.log("[AcpChat] Starting session with cwd:", cwd);
         const session = await agent.startSession(cwd);
+        console.log("[AcpChat] Session started:", session.id);
 
         if (!mounted) {
           await agent.terminate();
@@ -41,7 +51,13 @@ export function useAcpChat(options: UseAcpChatOptions): UseAcpChatReturn {
         sessionRef.current = session;
 
         // Subscribe to events
+        console.log("[AcpChat] Subscribing to events for session:", session.id);
+
         const deltaUnlisten = await session.onDelta((text) => {
+          console.log(
+            "[AcpChat] Delta received:",
+            text.substring(0, 50) + (text.length > 50 ? "..." : ""),
+          );
           streamingContentRef.current += text;
           setMessages((prev) => {
             const last = prev[prev.length - 1];
@@ -53,20 +69,24 @@ export function useAcpChat(options: UseAcpChatOptions): UseAcpChatReturn {
         });
         unlistenersRef.current.push(deltaUnlisten);
 
-        const completeUnlisten = await session.onComplete(() => {
+        const completeUnlisten = await session.onComplete((reason) => {
+          console.log("[AcpChat] Complete received:", reason);
           setIsLoading(false);
           streamingContentRef.current = "";
         });
         unlistenersRef.current.push(completeUnlisten);
 
         const errorUnlisten = await session.onError((msg) => {
+          console.log("[AcpChat] Error received:", msg);
           setError(new Error(msg));
           setIsLoading(false);
         });
         unlistenersRef.current.push(errorUnlisten);
 
+        console.log("[AcpChat] Ready!");
         setIsReady(true);
       } catch (err) {
+        console.error("[AcpChat] Initialization failed:", err);
         if (mounted) {
           const error = err as Error;
           setError(error);

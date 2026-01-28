@@ -8,8 +8,8 @@ use tokio::sync::RwLock;
 pub struct Session {
     pub id: String,
     pub agent_id: String,
-    #[allow(dead_code)]
     pub cwd: String,
+    pub model: String,
 }
 
 pub struct PluginState {
