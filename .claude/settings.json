@@ -25,40 +25,36 @@
         "hooks": [
           {
             "type": "command",
-            "command": "mise x -- node \"$CLAUDE_PROJECT_DIR/.claude/hooks/oxlint.js\""
+            "command": "file_path=$(jq -r '.tool_input.file_path') && if echo \"$file_path\"; then npx oxfmt \"$file_path\"; fi"
           }
-        ],
-        "description": "Run oxlint --fix on src/ and packages/ JS/TS files after edits"
+        ]
       },
       {
         "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",
-            "command": "mise x -- node \"$CLAUDE_PROJECT_DIR/.claude/hooks/oxfmt.js\""
+            "command": "file_path=$(jq -r '.tool_input.file_path') && if echo \"$file_path\" | grep -qE '\\.(js|jsx|ts|tsx)$'; then npx oxlint \"$file_path\"; fi"
           }
-        ],
-        "description": "Run oxfmt on src/ and packages/ JS/TS files after edits"
+        ]
       },
       {
         "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",
-            "command": "mise x -- node \"$CLAUDE_PROJECT_DIR/.claude/hooks/tsc.js\""
+            "command": "file_path=$(jq -r '.tool_input.file_path') && if echo \"$file_path\" | grep -qE '\\.(ts|tsx)$'; then npx tsc --noEmit --pretty false 2>&1; fi"
           }
-        ],
-        "description": "Run tsc --noEmit on src/ and packages/ TS files after edits"
+        ]
       },
       {
         "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",
-            "command": "mise x -- node \"$CLAUDE_PROJECT_DIR/.claude/hooks/cargo-fmt.js\""
+            "command": "file_path=$(jq -r '.tool_input.file_path') && if echo \"$file_path\" | grep -qE '\\.(rs)$'; then cargo fmt \"$file_path\"; fi"
           }
-        ],
-        "description": "Run cargo fmt on src-tauri/ and crates/ Rust files after edits"
+        ]
       }
     ]
   }
