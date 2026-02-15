@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useAcpChat } from "../hooks/useAcpChat";
+import { useTheme } from "../hooks/useTheme";
 import { ChatMessageList } from "./ChatMessageList";
 import { ChatInput } from "./ChatInput";
 import type { AgentSpec } from "tauri-acp";
 import type { ProviderConfig } from "../providers";
-import { Plus, AlertCircle } from "lucide-react";
+import { Plus, AlertCircle, Sun, Moon } from "lucide-react";
 import "./AcpChat.css";
 
 interface AcpChatProps {
@@ -44,6 +45,7 @@ export function AcpChat({
     supportsReasoningLevel: selectedProvider?.supportsReasoningLevel,
   });
 
+  const { theme, toggleTheme } = useTheme();
   const [providerOpen, setProviderOpen] = useState(false);
   const providerRef = useRef<HTMLDivElement>(null);
 
@@ -61,7 +63,7 @@ export function AcpChat({
   }, [providerOpen, handleClickOutside]);
 
   return (
-    <div className="acp-chat">
+    <div className="acp-chat" data-theme={theme}>
       {/* Header */}
       <header className="acp-chat-header">
         <div className="acp-chat-header-left">
@@ -71,6 +73,15 @@ export function AcpChat({
           </span>
         </div>
         <div className="acp-chat-header-right">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="acp-chat-theme-btn"
+            title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+            aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+          >
+            {theme === "light" ? <Moon size={14} /> : <Sun size={14} />}
+          </button>
           <div className="acp-chat-dropdown-wrapper" ref={providerRef}>
             <button
               type="button"

@@ -22,6 +22,21 @@ beforeAll(() => {
   // Mock scrollIntoView for jsdom (not implemented)
   Element.prototype.scrollIntoView = vi.fn();
 
+  // Mock matchMedia for jsdom (used by useTheme)
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+
   // Mock Tauri event plugin internals for listen/unlisten.
   (window as unknown as Record<string, unknown>).__TAURI_EVENT_PLUGIN_INTERNALS__ = {
     convertFileSrc: (filePath: string) => filePath,

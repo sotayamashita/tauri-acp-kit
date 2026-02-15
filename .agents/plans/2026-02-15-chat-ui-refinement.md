@@ -27,12 +27,17 @@ Deliverables:
   - Context7: Vercel AI SDK UIMessage parts architecture, useChat patterns
   - WebFetch: chat-sdk.dev architecture, Vercel Web Interface Guidelines
   - Agent team exploration: UX researcher, architect, devil's advocate
-- [ ] Phase 13: Parts-based message architecture (frontend refactor)
-- [ ] Phase 14: Extended ACP event pipeline (Rust + TypeScript SDK)
-  - [ ] Step 14.0: Wire protocol discovery — log ALL session/update types from real agents
-  - [ ] Step 14.1-14.6: Extend event pipeline based on discovery results
-- [ ] Phase 15: Rich message rendering (React components) — conditional on Phase 14 discovery
-- [ ] Phase 16: Dark mode + visual polish (CSS theming) — independent, can proceed in parallel
+- [x] (2026-02-15 23:00JST) Phase 13: Parts-based message architecture (frontend refactor)
+- [x] (2026-02-15 23:15JST) Phase 14: Extended ACP event pipeline (Rust + TypeScript SDK)
+  - [x] Step 14.0: Wire protocol discovery — log ALL session/update types from real agents
+  - [x] Step 14.1-14.6: Extend event pipeline based on discovery results
+- [x] (2026-02-15 23:30JST) Phase 15: Rich message rendering (React components)
+- [x] (2026-02-15 23:45JST) Phase 16: Dark mode + visual polish (CSS theming)
+  - CSS custom properties theming with light/dark palettes (46 variables each)
+  - Theme toggle button with localStorage persistence + prefers-color-scheme default
+  - Prism syntax highlighting adapted via CSS custom properties
+  - Fixed transition: all → specific properties, cleaned up duplicate declarations
+  - Added prefers-reduced-motion for all animations, text-wrap: pretty, font-variant-numeric: tabular-nums
 - [ ] Phase 17: Interaction improvements (New Chat, keyboard shortcuts) — independent
 
 ## Surprises & Discoveries
