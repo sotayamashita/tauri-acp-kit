@@ -85,4 +85,42 @@ export class AcpSession {
       callback(event.message);
     });
   }
+
+  async onThoughtDelta(callback: (text: string) => void): Promise<UnlistenFn> {
+    return this.onSessionEvent(
+      "thought_delta",
+      (event) => (event.type === "thought_delta" ? event.text : undefined),
+      callback,
+    );
+  }
+
+  async onToolCall(
+    callback: (event: Extract<AcpEvent, { type: "tool_call" }>) => void,
+  ): Promise<UnlistenFn> {
+    return this.onSessionEvent(
+      "tool_call",
+      (event) => (event.type === "tool_call" ? event : undefined),
+      callback,
+    );
+  }
+
+  async onToolCallUpdate(
+    callback: (event: Extract<AcpEvent, { type: "tool_call_update" }>) => void,
+  ): Promise<UnlistenFn> {
+    return this.onSessionEvent(
+      "tool_call_update",
+      (event) => (event.type === "tool_call_update" ? event : undefined),
+      callback,
+    );
+  }
+
+  async onPlanUpdate(
+    callback: (event: Extract<AcpEvent, { type: "plan_update" }>) => void,
+  ): Promise<UnlistenFn> {
+    return this.onSessionEvent(
+      "plan_update",
+      (event) => (event.type === "plan_update" ? event : undefined),
+      callback,
+    );
+  }
 }

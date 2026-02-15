@@ -11,6 +11,31 @@ pub enum AcpEvent {
         session_id: String,
         text: String,
     },
+    ThoughtDelta {
+        session_id: String,
+        text: String,
+    },
+    ToolCall {
+        session_id: String,
+        tool_call_id: String,
+        tool_name: String,
+        status: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        input: Option<serde_json::Value>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        content: Option<serde_json::Value>,
+    },
+    ToolCallUpdate {
+        session_id: String,
+        tool_call_id: String,
+        status: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        content: Option<serde_json::Value>,
+    },
+    PlanUpdate {
+        session_id: String,
+        tasks: serde_json::Value,
+    },
     Complete {
         session_id: String,
         stop_reason: String,

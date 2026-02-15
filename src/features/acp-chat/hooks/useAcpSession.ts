@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { AcpAgent, AcpSession } from "tauri-acp";
 import type { AcpModel } from "tauri-acp";
-import type { Message } from "../types";
+import type { ContentBlock, Message } from "../types";
 import { formatAcpError } from "../format-error";
 
 export interface UseAcpSessionOptions {
@@ -36,6 +36,7 @@ export function useAcpSession(
   const agentRef = useRef<AcpAgent | null>(null);
   const sessionRef = useRef<AcpSession | null>(null);
   const streamingContentRef = useRef("");
+  const streamingThoughtRef = useRef("");
   const unlistenersRef = useRef<Array<() => void>>([]);
 
   useEffect(() => {
@@ -83,9 +84,99 @@ export function useAcpSession(
         });
         unlistenersRef.current.push(deltaUnlisten);
 
+        const thoughtUnlisten = await session.onThoughtDelta((text) => {
+          streamingThoughtRef.current += text;
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (last?.role !== "assistant") return prev;
+            const existingBlocks = last.blocks;
+            const lastBlock = existingBlocks[existingBlocks.length - 1];
+            const thinkingBlock: ContentBlock = {
+              type: "thinking",
+              text: streamingThoughtRef.current,
+            };
+            if (lastBlock?.type === "thinking") {
+              return [
+                ...prev.slice(0, -1),
+                { ...last, blocks: [...existingBlocks.slice(0, -1), thinkingBlock] },
+              ];
+            }
+            return [...prev.slice(0, -1), { ...last, blocks: [...existingBlocks, thinkingBlock] }];
+          });
+        });
+        unlistenersRef.current.push(thoughtUnlisten);
+
+        const toolCallUnlisten = await session.onToolCall((event) => {
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (last?.role !== "assistant") return prev;
+            const block: ContentBlock = {
+              type: "tool_call",
+              toolCallId: event.tool_call_id,
+              title: event.tool_name,
+              kind: "unknown",
+              status: event.status === "in_progress" ? "running" : "pending",
+            };
+            return [...prev.slice(0, -1), { ...last, blocks: [...last.blocks, block] }];
+          });
+        });
+        unlistenersRef.current.push(toolCallUnlisten);
+
+        const toolCallUpdateUnlisten = await session.onToolCallUpdate((event) => {
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (last?.role !== "assistant") return prev;
+            const blocks = last.blocks.map((b) => {
+              if (b.type === "tool_call" && b.toolCallId === event.tool_call_id) {
+                const status =
+                  event.status === "completed"
+                    ? "completed"
+                    : event.status === "failed"
+                      ? "failed"
+                      : event.status === "in_progress"
+                        ? "running"
+                        : b.status;
+                return { ...b, status } as ContentBlock;
+              }
+              return b;
+            });
+            return [...prev.slice(0, -1), { ...last, blocks }];
+          });
+        });
+        unlistenersRef.current.push(toolCallUpdateUnlisten);
+
+        const planUnlisten = await session.onPlanUpdate((event) => {
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (last?.role !== "assistant") return prev;
+            const tasks = Array.isArray(event.tasks) ? event.tasks : [];
+            const planBlock: ContentBlock = {
+              type: "plan",
+              tasks: tasks.map((t: Record<string, unknown>) => ({
+                id: String(t.id ?? ""),
+                title: String(t.title ?? ""),
+                status: (t.status as "pending" | "in_progress" | "completed") ?? "pending",
+              })),
+            };
+            const existingBlocks = last.blocks;
+            const planIdx = existingBlocks.findIndex((b) => b.type === "plan");
+            const blocks =
+              planIdx >= 0
+                ? [
+                    ...existingBlocks.slice(0, planIdx),
+                    planBlock,
+                    ...existingBlocks.slice(planIdx + 1),
+                  ]
+                : [...existingBlocks, planBlock];
+            return [...prev.slice(0, -1), { ...last, blocks }];
+          });
+        });
+        unlistenersRef.current.push(planUnlisten);
+
         const completeUnlisten = await session.onComplete(() => {
           setIsLoading(false);
           streamingContentRef.current = "";
+          streamingThoughtRef.current = "";
         });
         unlistenersRef.current.push(completeUnlisten);
 
