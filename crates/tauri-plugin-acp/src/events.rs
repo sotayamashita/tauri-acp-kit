@@ -16,6 +16,7 @@ pub enum AcpEvent {
         stop_reason: String,
     },
     Error {
+        #[serde(skip_serializing_if = "Option::is_none")]
         session_id: Option<String>,
         message: String,
     },
@@ -28,6 +29,7 @@ pub enum AcpEvent {
     },
     AgentTerminated {
         agent_id: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
         exit_code: Option<i32>,
     },
 }
