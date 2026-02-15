@@ -49,30 +49,40 @@ export class AcpSession {
     return commands.cancel(this._id);
   }
 
-  async onDelta(callback: (text: string) => void): Promise<UnlistenFn> {
+  private onSessionEvent<T>(
+    eventType: string,
+    extract: (event: AcpEvent) => T | undefined,
+    callback: (data: T) => void,
+  ): Promise<UnlistenFn> {
     return onAcpEvent((event: AcpEvent) => {
-      if (event.type === "delta" && event.session_id === this._id) {
-        callback(event.text);
-      }
+      if (event.type !== eventType) return;
+      if ("session_id" in event && event.session_id !== this._id) return;
+      const data = extract(event);
+      if (data !== undefined) callback(data);
     });
   }
 
+  async onDelta(callback: (text: string) => void): Promise<UnlistenFn> {
+    return this.onSessionEvent(
+      "delta",
+      (event) => (event.type === "delta" ? event.text : undefined),
+      callback,
+    );
+  }
+
   async onComplete(callback: (reason: StopReason) => void): Promise<UnlistenFn> {
-    return onAcpEvent((event: AcpEvent) => {
-      if (event.type === "complete" && event.session_id === this._id) {
-        callback(event.stop_reason as StopReason);
-      }
-    });
+    return this.onSessionEvent(
+      "complete",
+      (event) => (event.type === "complete" ? (event.stop_reason as StopReason) : undefined),
+      callback,
+    );
   }
 
   async onError(callback: (message: string) => void): Promise<UnlistenFn> {
     return onAcpEvent((event: AcpEvent) => {
-      if (
-        event.type === "error" &&
-        (event.session_id === this._id || event.session_id === undefined)
-      ) {
-        callback(event.message);
-      }
+      if (event.type !== "error") return;
+      if (event.session_id !== undefined && event.session_id !== this._id) return;
+      callback(event.message);
     });
   }
 }

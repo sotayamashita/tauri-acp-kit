@@ -176,3 +176,100 @@ describe("useAcpChat reasoning level", () => {
     expect(setModelArgs[0].modelId).toBe("claude-sonnet-4/high");
   });
 });
+
+describe("useAcpChat message operations", () => {
+  let sendPromptArgs: Array<{ sessionId: string; prompt: string }>;
+  let cancelCalls: unknown[];
+
+  beforeEach(() => {
+    sendPromptArgs = [];
+    cancelCalls = [];
+    setupTauriMocks({
+      "plugin:acp|acp_spawn_agent": () => "test-agent-id",
+      "plugin:acp|acp_start_session": () => ({
+        sessionId: "test-session-id",
+        models: mockModels,
+        currentModelId: "claude-sonnet-4",
+      }),
+      "plugin:acp|acp_set_model": () => undefined,
+      "plugin:acp|acp_send_prompt": (args: unknown) => {
+        sendPromptArgs.push(args as { sessionId: string; prompt: string });
+        return "response-id";
+      },
+      "plugin:acp|acp_cancel": (args: unknown) => {
+        cancelCalls.push(args);
+        return undefined;
+      },
+      "plugin:acp|acp_terminate_agent": () => undefined,
+    });
+  });
+
+  afterEach(() => {
+    cleanupTauriMocks();
+  });
+
+  it("append adds user and assistant messages", async () => {
+    const { result } = renderHook(() => useAcpChat({ agentSpec: testAgentSpec }));
+
+    await waitFor(() => {
+      expect(result.current.isReady).toBe(true);
+    });
+
+    await act(async () => {
+      await result.current.append("Hello");
+    });
+
+    expect(result.current.messages).toHaveLength(2);
+    expect(result.current.messages[0].role).toBe("user");
+    expect(result.current.messages[0].content).toBe("Hello");
+    expect(result.current.messages[1].role).toBe("assistant");
+  });
+
+  it("append is a no-op before session is ready", async () => {
+    const { result } = renderHook(() => useAcpChat({ agentSpec: testAgentSpec }));
+
+    // Don't wait for ready
+    await act(async () => {
+      await result.current.append("Hello");
+    });
+
+    expect(result.current.messages).toHaveLength(0);
+    expect(sendPromptArgs).toHaveLength(0);
+  });
+
+  it("stop calls cancel on the session", async () => {
+    const { result } = renderHook(() => useAcpChat({ agentSpec: testAgentSpec }));
+
+    await waitFor(() => {
+      expect(result.current.isReady).toBe(true);
+    });
+
+    await act(async () => {
+      await result.current.stop();
+    });
+
+    expect(cancelCalls).toHaveLength(1);
+  });
+
+  it("reset clears messages, input, and error", async () => {
+    const { result } = renderHook(() => useAcpChat({ agentSpec: testAgentSpec }));
+
+    await waitFor(() => {
+      expect(result.current.isReady).toBe(true);
+    });
+
+    await act(async () => {
+      await result.current.append("Hello");
+    });
+
+    expect(result.current.messages.length).toBeGreaterThan(0);
+
+    act(() => {
+      result.current.reset();
+    });
+
+    expect(result.current.messages).toHaveLength(0);
+    expect(result.current.input).toBe("");
+    expect(result.current.error).toBeNull();
+  });
+});
