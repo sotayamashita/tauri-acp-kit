@@ -61,6 +61,12 @@ Deliverables:
   - Created `docs/codex-app-server-protocol.md` (8.6KB)
   - Documents: protocol overview, request/response formats, notification methods, InputItem schema
   - Includes: how to obtain schema files, implementation notes for Rust/TypeScript
+- [x] (2026-02-15) Phase 9: ACP v1 protocol migration (COMPLETED)
+  - Migrated from Codex app-server protocol to ACP v1 (codex-acp / claude-code-acp compatible)
+  - commands.rs: initialize params, session/new, session/prompt, session/cancel
+  - process.rs: Replaced Codex notification handlers with session/update handler
+  - App.tsx: Default agent changed from codex to claude-code-acp
+  - docs: Rewrote protocol documentation for ACP v1
 - [x] (2026-01-28 18:30JST) Phase 8: Modern Chat UI refinement (COMPLETED)
   - Reference: langchain-ai/agent-chat-ui patterns via DeepWiki
   - Improvements implemented:
@@ -165,6 +171,22 @@ Deliverables:
   - Resolution: Changed to use `thread/start` instead of `newConversation`
   - Evidence: Node.js test received `"delta":"Hello"` successfully
 
+- (2026-02-15) codex-acp and claude-code-acp both implement ACP v1
+  - Discovery: DeepWiki analysis confirmed both agents use the same JSON-RPC methods (initialize, session/new, session/prompt, session/cancel, session/update)
+  - Implication: A single ACP v1 implementation can support both agents without any conditional logic
+
+- (2026-02-15) Codex app-server protocol (thread/start, turn/start) is NOT ACP
+  - Discovery: The previous implementation used Codex-internal protocol, not the standardized ACP v1
+  - ACP v1 uses session/new, session/prompt instead of thread/start, turn/start
+
+- (2026-02-15) ACP v1 protocol differences from Codex app-server (from bugtracker validation)
+  - initialize params: `protocolVersion` + `clientCapabilities` (not `clientInfo` + `workingDirectory`)
+  - No `initialized` notification needed (Codex required it)
+  - session/cancel is a notification, not a request
+  - Completion is signaled by the session/prompt response, not a turn/completed notification
+  - Field name is `prompt` not `input` in session/prompt params
+  - Session ID comes from `result.sessionId` not `result.thread.id`
+
 ## Decision Log
 
 - Decision: TypeScript SDK package name is `tauri-acp` (no scope)
@@ -207,6 +229,10 @@ Deliverables:
   Rationale: (1) Flexibility to support other agents (Claude Code, Goose) in future, (2) Process isolation prevents agent crashes from affecting app, (3) Implementation already working. codex-core would require Rust-only, Codex-specific implementation.
   Date/Author: 2026-01-28 / User confirmation after analysis
 
+- Decision: Migrate from Codex app-server protocol to ACP v1
+  Rationale: codex-acp and claude-code-acp both implement ACP v1. By migrating to ACP v1, a single implementation supports both agents. The Codex app-server protocol (thread/start, turn/start) was Codex-specific and not the standardized ACP.
+  Date/Author: 2026-02-15 / Discovery from bugtracker project and DeepWiki analysis
+
 ## Outcomes & Retrospective
 
 - (2026-01-27 18:51JST) Initial implementation completed
@@ -232,6 +258,12 @@ Deliverables:
     - `initialized` notification is REQUIRED (not optional)
     - zed-industries/codex-acp uses codex-core directly (not app-server)
   - Documentation created: `docs/codex-app-server-protocol.md`
+
+- (2026-02-15) **ACP v1 protocol migration COMPLETED**
+  - Migrated from Codex app-server protocol to ACP v1
+  - Files changed: commands.rs, process.rs, App.tsx, docs/codex-app-server-protocol.md
+  - Based on bugtracker reference implementation (verified against claude-code-acp v0.16.0)
+  - Protocol documentation rewritten for ACP v1 with comparison table
 
 ## Context and Orientation
 

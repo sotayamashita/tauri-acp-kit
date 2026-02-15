@@ -1,59 +1,12 @@
-# Codex App Server Protocol
+# ACP (Agent Client Protocol) v1
 
-This document describes the JSON-RPC protocol used by Codex's `app-server` mode for GUI client integration.
+This document describes the ACP v1 JSON-RPC protocol used for GUI client integration with ACP-compatible agents.
 
-## What is this?
+## What is ACP?
 
-Codex app-server is a JSON-RPC 2.0 based server that runs as a child process, communicating via stdio (stdin/stdout). It enables GUI applications to integrate with Codex for AI-assisted coding capabilities.
+ACP (Agent Client Protocol) is a JSON-RPC 2.0 based protocol for communication between GUI clients and coding assistance agents. It runs over stdio (stdin/stdout) using JSON Lines (JSONL) framing.
 
-The protocol supports:
-
-- Session/conversation management
-- Streaming text responses (delta notifications)
-- Tool execution approval flows
-- File change requests
-- Command execution
-
-## How to obtain the schema
-
-The JSON Schema files can be extracted from the Codex source code or generated from its TypeScript/Rust type definitions.
-
-### Method 1: From Codex source (if available)
-
-    # Clone the Codex repository
-    git clone <codex-repo-url>
-    cd codex
-
-    # Look for schema generation scripts or type definitions
-    find . -name "*.schema.json" -o -name "*schema*.ts"
-
-### Method 2: Runtime extraction
-
-If you have access to Codex internals, schemas may be exported via a command:
-
-    codex --export-schema > codex-schema.json
-
-Key files:
-
-- `ClientRequest.json` - All request methods the client can send
-- `ServerNotification.json` - All notifications the server can emit
-- `codex_app_server_protocol.schemas.json` - Combined schema (395KB)
-
-## Protocol Overview
-
-### Protocol Versions
-
-Codex app-server supports two protocol versions:
-
-| Aspect            | v1 (Legacy)                                 | v2 (Recommended)                  |
-| ----------------- | ------------------------------------------- | --------------------------------- |
-| Start turn        | `sendUserTurn`                              | `turn/start`                      |
-| Thread ID field   | `conversationId`                            | `threadId`                        |
-| Input field       | `items`                                     | `input`                           |
-| Input item format | `{"type": "text", "data": {"text": "..."}}` | `{"type": "text", "text": "..."}` |
-| Cancel            | `interruptConversation`                     | `turn/interrupt`                  |
-
-This document primarily covers v2 protocol, with v1 noted for compatibility.
+Both `codex-acp` and `claude-code-acp` implement ACP v1, so a single client implementation can support multiple agents.
 
 ### Transport
 
@@ -65,25 +18,13 @@ This document primarily covers v2 protocol, with v1 noted for compatibility.
 
 1. **Request** (client → server): Has `id`, expects response
 2. **Response** (server → client): Has matching `id`
-3. **Notification** (server → client): No `id`, fire-and-forget
-
-### Important: Codex omits `jsonrpc` field
-
-Unlike standard JSON-RPC 2.0, Codex responses and notifications may omit the `"jsonrpc": "2.0"` field:
-
-    // Standard JSON-RPC 2.0
-    {"jsonrpc": "2.0", "id": 1, "result": {...}}
-
-    // Codex actual response
-    {"id": 1, "result": {...}}
-
-Clients must handle both formats.
+3. **Notification** (bidirectional): No `id`, fire-and-forget
 
 ## Client Request Methods
 
 ### initialize
 
-Handshake to establish client identity.
+Handshake to establish protocol version and client capabilities.
 
 **Request:**
 
@@ -92,122 +33,68 @@ Handshake to establish client identity.
       "id": 1,
       "method": "initialize",
       "params": {
-        "clientInfo": {
-          "name": "tauri-acp",
-          "version": "0.1.0"
-        },
-        "workingDirectory": "/path/to/project"
+        "protocolVersion": 1,
+        "clientCapabilities": {}
       }
     }
 
 **Response:**
 
     {
+      "jsonrpc": "2.0",
       "id": 1,
       "result": {
-        "userAgent": "tauri-acp/0.91.0 (Mac OS 26.2.0; arm64) ghostty/1.2.3 (tauri-acp; 0.1.0)"
+        "serverInfo": { "name": "claude-code-acp", "version": "0.16.0" }
       }
     }
 
-### initialized (Notification - CRITICAL)
+**Note:** Unlike the Codex app-server protocol, ACP does NOT require a separate `initialized` notification after the handshake. The `initialize` response itself completes the handshake.
 
-**IMPORTANT:** After receiving the `initialize` response, the client MUST send an `initialized` notification. This completes the handshake and enables the server to process subsequent requests.
+### session/new
 
-Without this notification, requests like `turn/start` may be accepted but will not trigger AI responses.
-
-**Notification (client → server, no `id`):**
-
-    {
-      "jsonrpc": "2.0",
-      "method": "initialized"
-    }
-
-Or with empty params:
-
-    {
-      "jsonrpc": "2.0",
-      "method": "initialized",
-      "params": {}
-    }
-
-This notification does not receive a response.
-
-### thread/start (RECOMMENDED)
-
-Start a new thread. This is the **recommended** method to create a conversation that will properly handle AI responses.
-
-**IMPORTANT:** Use `thread/start` instead of `newConversation` for new implementations. `newConversation` returns a `conversationId` but does NOT properly initialize the AI session for `turn/start` to trigger responses.
+Create a new session. The `mcpServers` field is required (pass `[]` if none).
 
 **Request:**
 
     {
       "jsonrpc": "2.0",
       "id": 2,
-      "method": "thread/start",
+      "method": "session/new",
       "params": {
-        "cwd": "/path/to/project"
+        "cwd": "/path/to/project",
+        "mcpServers": []
       }
     }
 
 **Response:**
-
-    {
-      "id": 2,
-      "result": {
-        "thread": {
-          "id": "019c035b-f523-7ee3-9391-7860e3497d31",
-          "preview": "",
-          "modelProvider": "openai",
-          "createdAt": 1769582884,
-          "updatedAt": 1769582884,
-          "path": "/Users/.../.codex/sessions/2026/01/28/rollout-....jsonl",
-          "cwd": "/path/to/project"
-        }
-      }
-    }
-
-The `thread.id` is used as `threadId` in subsequent `turn/start` requests.
-
-### newConversation (LEGACY)
-
-Create a new conversation thread. **Note:** This method returns a `conversationId` but does NOT properly initialize the AI session. Use `thread/start` instead.
-
-**Request:**
 
     {
       "jsonrpc": "2.0",
       "id": 2,
-      "method": "newConversation",
-      "params": {
-        "workingDirectory": "/path/to/project"
-      }
-    }
-
-**Response:**
-
-    {
-      "id": 2,
       "result": {
-        "conversationId": "019c0215-4155-7032-83c9-a36633d06154",
-        "model": "gpt-5.2-codex",
-        "reasoningEffort": "medium",
-        "rolloutPath": "/Users/.../.codex/sessions/2026/01/28/rollout-....jsonl"
+        "sessionId": "sess_abc123",
+        "models": [
+          { "value": "claude-sonnet-4-20250514", "label": "Claude Sonnet 4" }
+        ],
+        "modes": ["agent", "chat"]
       }
     }
 
-### turn/start (v2 - Recommended)
+The `sessionId` is used in all subsequent session-scoped requests. The `models` array provides available model options.
 
-Start a new turn with user input. This triggers the AI to generate a response.
+### session/prompt
+
+Send a prompt to the agent. Streaming text arrives via `session/update` notifications. The response itself signals completion (ACP does NOT send a separate `turn/completed` notification).
 
 **Request:**
 
     {
       "jsonrpc": "2.0",
       "id": 3,
-      "method": "turn/start",
+      "method": "session/prompt",
       "params": {
-        "threadId": "019c0215-4155-7032-83c9-a36633d06154",
-        "input": [
+        "sessionId": "sess_abc123",
+        "prompt": [
           {
             "type": "text",
             "text": "Hello, how are you?"
@@ -216,215 +103,69 @@ Start a new turn with user input. This triggers the AI to generate a response.
       }
     }
 
-**Optional parameters:**
+**Important:** The field name is `prompt` (not `input`). `claude-code-acp`'s `promptToClaude()` reads `params.prompt` to build the content array.
+
+**Response** (sent after the agent finishes):
 
     {
-      "threadId": "...",
-      "input": [...],
-      "cwd": "/path/to/project",
-      "approvalPolicy": "on-failure",
-      "sandboxPolicy": {
-        "type": "danger-full-access"
-      },
-      "model": "gpt-5.2-codex",
-      "effort": "medium"
-    }
-
-**Response:**
-
-    {
+      "jsonrpc": "2.0",
       "id": 3,
       "result": {}
     }
 
-The actual response content comes via notifications (see below).
+### session/cancel
 
-### sendUserMessage (v1 - Legacy)
+Cancel an ongoing generation. This is a **notification** (fire-and-forget), not a request.
 
-Adds a message to conversation without triggering AI response. Use `turn/start` instead.
-
-**Request:**
+**Notification (client → server, no `id`):**
 
     {
       "jsonrpc": "2.0",
-      "id": 3,
-      "method": "sendUserMessage",
+      "method": "session/cancel",
       "params": {
-        "conversationId": "019c0215-4155-7032-83c9-a36633d06154",
-        "items": [
-          {
-            "type": "text",
-            "data": {
-              "text": "Hello, how are you?"
-            }
-          }
-        ]
+        "sessionId": "sess_abc123"
       }
     }
 
-### turn/interrupt (v2) / interruptConversation (v1)
+### session/update
 
-Cancel an ongoing generation.
-
-**v2 Request (requires turnId from turn/started notification):**
-
-    {
-      "jsonrpc": "2.0",
-      "id": 4,
-      "method": "turn/interrupt",
-      "params": {
-        "threadId": "019c0215-4155-7032-83c9-a36633d06154",
-        "turnId": "turn-abc123"
-      }
-    }
-
-**v1 Request:**
-
-    {
-      "jsonrpc": "2.0",
-      "id": 4,
-      "method": "interruptConversation",
-      "params": {
-        "conversationId": "019c0215-4155-7032-83c9-a36633d06154"
-      }
-    }
-
-### Other Methods
-
-From the schema, additional methods include:
-
-| Method            | Description                                         |
-| ----------------- | --------------------------------------------------- |
-| `thread/start`    | Start a new thread (alternative to newConversation) |
-| `thread/resume`   | Resume existing thread                              |
-| `thread/fork`     | Fork a thread                                       |
-| `thread/archive`  | Archive a thread                                    |
-| `thread/rollback` | Rollback thread state                               |
-| `thread/list`     | List threads                                        |
-| `thread/read`     | Read thread content                                 |
-| `turn/start`      | Start a turn with user input (v2, recommended)      |
-| `turn/interrupt`  | Cancel ongoing generation (v2)                      |
-| `skills/list`     | List available skills                               |
-| `model/list`      | List available models                               |
-| `config/read`     | Read configuration                                  |
-| `account/read`    | Read account info                                   |
-| `fuzzyFileSearch` | Search files                                        |
+Not a client method — see Server Notifications below.
 
 ## Server Notifications
 
-Notifications are sent from server to client without an `id` field.
+### session/update
 
-### item/agentMessage/delta
+Streaming updates from the agent during prompt processing.
 
-Streaming text fragment from the AI.
-
-    {
-      "method": "item/agentMessage/delta",
-      "params": {
-        "threadId": "019c0215-4155-7032-83c9-a36633d06154",
-        "turnId": "turn-abc123",
-        "itemId": "item-xyz789",
-        "delta": "Hello! I'm doing well, thank you for asking."
-      }
-    }
-
-### turn/completed
-
-Indicates the AI has finished its turn.
+**agent_message_chunk** — streaming text fragment:
 
     {
-      "method": "turn/completed",
+      "jsonrpc": "2.0",
+      "method": "session/update",
       "params": {
-        "threadId": "019c0215-4155-7032-83c9-a36633d06154",
-        "turn": {
-          "id": "turn-abc123",
-          "status": "completed"
+        "sessionId": "sess_abc123",
+        "update": {
+          "sessionUpdate": "agent_message_chunk",
+          "content": {
+            "type": "text",
+            "text": "Hello! I'm doing well."
+          }
         }
       }
     }
 
-### turn/started
-
-Indicates a new turn has begun.
-
-    {
-      "method": "turn/started",
-      "params": {
-        "threadId": "019c0215-4155-7032-83c9-a36633d06154",
-        "turnId": "turn-abc123"
-      }
-    }
-
-### item/started / item/completed
-
-Item lifecycle notifications.
-
-    {
-      "method": "item/started",
-      "params": {
-        "threadId": "...",
-        "turnId": "...",
-        "itemId": "...",
-        "type": "agentMessage"
-      }
-    }
-
-### configWarning
-
-Non-blocking configuration warning.
-
-    {
-      "method": "configWarning",
-      "params": {
-        "summary": "The following config folders are disabled:\n    1. /path/.codex\n       Add /path as a trusted project in ~/.codex/config.toml.\n",
-        "details": null
-      }
-    }
-
-### Other Notifications
-
-| Method                                      | Description                  |
-| ------------------------------------------- | ---------------------------- |
-| `item/commandExecution/outputDelta`         | Command output streaming     |
-| `item/commandExecution/terminalInteraction` | Terminal interaction request |
-| `item/fileChange/outputDelta`               | File change output           |
-| `item/reasoning/textDelta`                  | Reasoning text streaming     |
-| `item/reasoning/summaryTextDelta`           | Reasoning summary            |
-| `item/mcpToolCall/progress`                 | MCP tool call progress       |
-| `turn/diff/updated`                         | Diff updated                 |
-| `turn/plan/updated`                         | Plan updated                 |
-| `account/updated`                           | Account state changed        |
-| `account/rateLimits/updated`                | Rate limits changed          |
-
-## InputItem Types
-
-The `items` array in `sendUserMessage` supports multiple input types:
-
-### TextInputItem
-
-    {
-      "type": "text",
-      "data": {
-        "text": "User message content",
-        "text_elements": []  // Optional: UI-defined spans
-      }
-    }
-
-### Other Input Types (from schema)
-
-- Image input
-- File reference input
-- Code snippet input
+Other `sessionUpdate` types may include tool use, file changes, etc. Clients should handle unknown types gracefully.
 
 ## Error Handling
 
 Errors are returned in the standard JSON-RPC error format:
 
     {
+      "jsonrpc": "2.0",
       "id": 3,
       "error": {
         "code": -32600,
-        "message": "Invalid request: missing field `items`",
+        "message": "Invalid request",
         "data": null
       }
     }
@@ -435,57 +176,28 @@ Common error codes:
 - `-32601`: Method not found
 - `-32602`: Invalid params
 
-## Schema File Reference
+## Key Differences from Codex App-Server Protocol
 
-### /tmp/codex-schema/ClientRequest.json
+| Aspect               | Codex app-server                       | ACP v1                                      |
+| -------------------- | -------------------------------------- | ------------------------------------------- |
+| Initialize params    | `clientInfo`, `workingDirectory`       | `protocolVersion`, `clientCapabilities`     |
+| Handshake completion | Requires `initialized` notification    | `initialize` response completes handshake   |
+| Create session       | `thread/start` → `result.thread.id`    | `session/new` → `result.sessionId`          |
+| Send prompt          | `turn/start` with `threadId`, `input`  | `session/prompt` with `sessionId`, `prompt` |
+| Streaming delta      | `item/agentMessage/delta` notification | `session/update` notification               |
+| Completion signal    | `turn/completed` notification          | `session/prompt` response                   |
+| Cancel               | `interruptConversation` request        | `session/cancel` notification               |
 
-Contains all client → server request definitions:
+## Compatible Agents
 
-    SendUserMessageParams:
-      - conversationId: string (required)
-      - items: InputItem[] (required)
+| Agent           | Package           | Notes                              |
+| --------------- | ----------------- | ---------------------------------- |
+| claude-code-acp | `claude-code-acp` | Anthropic's Claude Code ACP bridge |
+| codex-acp       | `codex-acp`       | OpenAI Codex ACP bridge            |
 
-    InputItem (oneOf):
-      - TextInputItem: {type: "text", data: {text: string}}
-      - Other input types...
-
-### /tmp/codex-schema/ServerNotification.json
-
-Contains all server → client notification definitions:
-
-    AgentMessageDeltaNotification:
-      - delta: string (required)
-      - itemId: string (required)
-      - threadId: string (required)
-      - turnId: string (required)
-
-    TurnCompletedNotification:
-      - threadId: string (required)
-      - turn: Turn (required)
-
-## Implementation Notes
-
-### For Tauri Plugin (Rust)
-
-1. Make `jsonrpc` field optional in response/notification structs
-2. Use `#[serde(default)]` for optional fields
-3. Handle both `conversationId` and `threadId` (they're equivalent)
-4. Use v2 protocol (`turn/start`) for better compatibility
-5. Store `model` from `newConversation` response for optional use in `turn/start`
-
-### For TypeScript SDK
-
-1. Event listeners should filter by `threadId` matching current session
-2. Accumulate `delta` notifications to build complete response
-3. Use `turn/completed` to signal end of streaming
-4. Track `turnId` from `turn/started` if implementing `turn/interrupt`
-
-### Protocol Selection
-
-- **v2 (Recommended)**: Use `turn/start` with `threadId` and `input` array
-- **v1 (Legacy)**: Use `sendUserTurn` with `conversationId` and `items` array
-- Both versions use the same notification format for responses
+Both implement ACP v1 and can be used interchangeably with this protocol.
 
 ## Version History
 
-- 2026-01-28: Initial documentation based on Codex 0.91.0
+- 2026-02-15: Rewritten for ACP v1 protocol (replaces Codex app-server documentation)
+- 2026-01-28: Initial documentation based on Codex app-server protocol

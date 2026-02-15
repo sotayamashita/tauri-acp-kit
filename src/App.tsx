@@ -4,9 +4,9 @@ import type { AgentSpec } from "tauri-acp";
 
 // Configure your ACP agent here
 const agentSpec: AgentSpec = {
-  id: "codex",
-  executable: "/opt/homebrew/bin/codex",
-  args: ["app-server"],
+  id: "claude-code-acp",
+  executable: "claude-code-acp",
+  args: [],
 };
 
 function App() {

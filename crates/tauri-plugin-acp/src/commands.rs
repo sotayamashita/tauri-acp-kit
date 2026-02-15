@@ -37,13 +37,10 @@ pub async fn acp_start_session<R: Runtime>(
 ) -> Result<String, Error> {
     let handle = state.get_agent_handle(&agent_id).await?;
 
-    // Send initialize request to agent
+    // ACP: Send initialize request (verified against claude-code-acp v0.16.0)
     let init_params = serde_json::json!({
-        "clientInfo": {
-            "name": "tauri-acp",
-            "version": "0.1.0"
-        },
-        "workingDirectory": cwd
+        "protocolVersion": 1,
+        "clientCapabilities": {}
     });
 
     let response = handle.send_request("initialize", init_params).await?;
@@ -57,65 +54,60 @@ pub async fn acp_start_session<R: Runtime>(
 
     tracing::debug!("Initialize response: {:?}", response);
 
-    // CRITICAL: Send 'initialized' notification after receiving initialize response
-    // This completes the handshake and enables subsequent requests to work properly
-    // See: openai/codex MessageProcessor requires this notification before processing other requests
-    handle
-        .send_notification("initialized", serde_json::json!({}))
-        .await?;
-    tracing::info!("Sent 'initialized' notification to complete handshake");
+    // ACP: initialize response completes the handshake.
+    // No separate 'initialized' notification needed (unlike Codex).
 
-    // CRITICAL: Use thread/start instead of newConversation
-    // thread/start creates a thread and properly initializes the AI session
-    // newConversation alone does NOT trigger AI responses on turn/start
-    let thread_params = serde_json::json!({
-        "cwd": cwd
+    // ACP: session/new creates a new session (mcpServers required)
+    let session_params = serde_json::json!({
+        "cwd": cwd,
+        "mcpServers": []
     });
 
-    let thread_response = handle.send_request("thread/start", thread_params).await?;
+    let session_response = handle.send_request("session/new", session_params).await?;
 
-    if thread_response.error.is_some() {
+    if session_response.error.is_some() {
         return Err(Error::Protocol(format!(
-            "thread/start failed: {:?}",
-            thread_response.error
+            "session/new failed: {:?}",
+            session_response.error
         )));
     }
 
-    tracing::debug!("thread/start response: {:?}", thread_response);
+    tracing::debug!("session/new response: {:?}", session_response);
 
-    // Extract thread ID and model from response
-    // Response format: { "result": { "thread": { "id": "...", "modelProvider": "..." } } }
-    let result = thread_response.result.as_ref();
+    // Extract session ID and model from response
+    let result = session_response.result.as_ref();
 
-    let thread_id = result
-        .and_then(|r| r.get("thread"))
-        .and_then(|t| t.get("id"))
+    // claude-code-acp returns { sessionId, models, modes } at the top level
+    let returned_session_id = result
+        .and_then(|r| r.get("sessionId"))
         .and_then(|v| v.as_str())
         .unwrap_or_else(|| {
-            tracing::warn!("No thread.id in response, using generated UUID");
+            tracing::warn!("No sessionId in response, using generated UUID");
             ""
         });
 
-    let model_provider = result
-        .and_then(|r| r.get("thread"))
-        .and_then(|t| t.get("modelProvider"))
+    let model = result
+        .and_then(|r| r.get("models"))
+        .and_then(|m| m.as_array())
+        .and_then(|arr| arr.first())
+        .and_then(|m| m.get("value"))
         .and_then(|v| v.as_str())
-        .unwrap_or("openai")
+        .unwrap_or("claude")
         .to_string();
 
-    tracing::info!(thread_id = %thread_id, model_provider = %model_provider, "Thread started");
+    tracing::info!(session_id = %returned_session_id, model = %model, "Session created");
 
-    let session_id = if thread_id.is_empty() {
+    let session_id = if returned_session_id.is_empty() {
         uuid::Uuid::new_v4().to_string()
     } else {
-        thread_id.to_string()
+        returned_session_id.to_string()
     };
 
     let session = Session {
         id: session_id.clone(),
         agent_id: agent_id.clone(),
         cwd,
-        model: model_provider,
+        model,
     };
 
     state.add_session(session).await;
@@ -133,7 +125,7 @@ pub async fn acp_start_session<R: Runtime>(
 
 #[tauri::command]
 pub async fn acp_send_prompt<R: Runtime>(
-    _app: AppHandle<R>,
+    app: AppHandle<R>,
     state: State<'_, PluginState>,
     session_id: String,
     prompt: String,
@@ -142,11 +134,12 @@ pub async fn acp_send_prompt<R: Runtime>(
     let handle = state.get_agent_handle(&session.agent_id).await?;
     let request_id = uuid::Uuid::new_v4().to_string();
 
-    // Codex v2 protocol: turn/start with threadId and input array
-    // Input format: {"type": "text", "text": "..."} (simpler than v1's InputItem)
+    // ACP: session/prompt sends a prompt and receives a response
+    // Field must be "prompt" (not "input") — claude-code-acp's promptToClaude()
+    // reads params.prompt to build the content array for Claude.
     let prompt_params = serde_json::json!({
-        "threadId": session_id,
-        "input": [{
+        "sessionId": session_id,
+        "prompt": [{
             "type": "text",
             "text": prompt
         }]
@@ -155,18 +148,62 @@ pub async fn acp_send_prompt<R: Runtime>(
     tracing::debug!(
         session_id = %session_id,
         model = %session.model,
-        "Starting turn with v2 protocol"
+        "Sending prompt via ACP session/prompt"
     );
 
-    // Spawn task to send prompt (don't block, streaming via events)
+    // ACP: session/prompt is a request that returns a response with completion.
+    // Streaming updates arrive via session/update notifications.
+    // The response itself signals completion.
     let request_id_clone = request_id.clone();
+    let session_id_clone = session_id.clone();
+    let app_clone = app.clone();
     tokio::spawn(async move {
-        match handle.send_request("turn/start", prompt_params).await {
+        match handle.send_request("session/prompt", prompt_params).await {
             Ok(response) => {
-                tracing::debug!(request_id = %request_id_clone, "Turn response received: {:?}", response);
+                tracing::debug!(request_id = %request_id_clone, "Prompt response received: {:?}", response);
+
+                // Check if the response contains an error (e.g., invalid params, internal error)
+                if let Some(ref err) = response.error {
+                    let data_str = err
+                        .data
+                        .as_ref()
+                        .map(|d| format!(" data={}", d))
+                        .unwrap_or_default();
+                    let error_msg = format!(
+                        "session/prompt error: code={}, message={}{}",
+                        err.code, err.message, data_str,
+                    );
+                    tracing::error!(request_id = %request_id_clone, "{}", error_msg);
+                    emit_event(
+                        &app_clone,
+                        AcpEvent::Error {
+                            session_id: Some(session_id_clone),
+                            message: error_msg,
+                        },
+                    );
+                    return;
+                }
+
+                // ACP: The response to session/prompt indicates completion.
+                // Emit Complete event here since ACP doesn't send a separate
+                // turn/completed notification like Codex does.
+                emit_event(
+                    &app_clone,
+                    AcpEvent::Complete {
+                        session_id: session_id_clone,
+                        stop_reason: "end_turn".to_string(),
+                    },
+                );
             }
             Err(e) => {
-                tracing::error!(request_id = %request_id_clone, "Turn request failed: {}", e);
+                tracing::error!(request_id = %request_id_clone, "Prompt request failed: {}", e);
+                emit_event(
+                    &app_clone,
+                    AcpEvent::Error {
+                        session_id: Some(session_id_clone),
+                        message: e.to_string(),
+                    },
+                );
             }
         }
     });
@@ -183,13 +220,13 @@ pub async fn acp_cancel<R: Runtime>(
     let session = state.get_session(&session_id).await?;
     let handle = state.get_agent_handle(&session.agent_id).await?;
 
-    // Codex uses interruptConversation method
+    // ACP: session/cancel is a notification (fire-and-forget), not a request
     let cancel_params = serde_json::json!({
-        "conversationId": session_id
+        "sessionId": session_id
     });
 
     handle
-        .send_request("interruptConversation", cancel_params)
+        .send_notification("session/cancel", cancel_params)
         .await?;
 
     Ok(())

@@ -288,56 +288,50 @@ impl AgentProcess {
 
     fn handle_notification<R: Runtime>(app: &AppHandle<R>, notification: JsonRpcNotification) {
         match notification.method.as_str() {
-            // Codex: streaming text delta from agent message
-            "item/agentMessage/delta" => {
-                if let (Some(thread_id), Some(delta)) = (
-                    notification.params.get("threadId").and_then(|v| v.as_str()),
-                    notification.params.get("delta").and_then(|v| v.as_str()),
-                ) {
-                    tracing::debug!(thread_id = %thread_id, delta_len = delta.len(), "Agent message delta");
-                    emit_event(
-                        app,
-                        AcpEvent::Delta {
-                            session_id: thread_id.to_string(),
-                            text: delta.to_string(),
-                        },
-                    );
+            // ACP: streaming text delta from agent message
+            // session/update with sessionUpdate containing agent_message_chunk
+            "session/update" => {
+                let session_id = notification
+                    .params
+                    .get("sessionId")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+
+                // ACP sends: { sessionId, update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: "..." } } }
+                if let Some(update) = notification.params.get("update") {
+                    if let Some(update_type) = update.get("sessionUpdate").and_then(|v| v.as_str())
+                    {
+                        match update_type {
+                            "agent_message_chunk" => {
+                                if let Some(text) = update
+                                    .get("content")
+                                    .and_then(|c| c.get("text"))
+                                    .and_then(|v| v.as_str())
+                                {
+                                    tracing::debug!(
+                                        session_id = %session_id,
+                                        delta_len = text.len(),
+                                        "Agent message delta"
+                                    );
+                                    emit_event(
+                                        app,
+                                        AcpEvent::Delta {
+                                            session_id: session_id.to_string(),
+                                            text: text.to_string(),
+                                        },
+                                    );
+                                }
+                            }
+                            _ => {
+                                tracing::debug!(
+                                    session_id = %session_id,
+                                    update_type = %update_type,
+                                    "Session update"
+                                );
+                            }
+                        }
+                    }
                 }
-            }
-            // Codex: turn completed
-            "turn/completed" => {
-                if let Some(thread_id) =
-                    notification.params.get("threadId").and_then(|v| v.as_str())
-                {
-                    tracing::debug!(thread_id = %thread_id, "Turn completed");
-                    emit_event(
-                        app,
-                        AcpEvent::Complete {
-                            session_id: thread_id.to_string(),
-                            stop_reason: "end_turn".to_string(),
-                        },
-                    );
-                }
-            }
-            // Codex: turn started
-            "turn/started" => {
-                if let Some(thread_id) =
-                    notification.params.get("threadId").and_then(|v| v.as_str())
-                {
-                    tracing::debug!(thread_id = %thread_id, "Turn started");
-                }
-            }
-            // Codex: item started
-            "item/started" => {
-                tracing::debug!(params = ?notification.params, "Item started");
-            }
-            // Codex: item completed
-            "item/completed" => {
-                tracing::debug!(params = ?notification.params, "Item completed");
-            }
-            // Codex: config warning (non-critical)
-            "configWarning" => {
-                tracing::debug!("Config warning received");
             }
             _ => {
                 tracing::debug!(
