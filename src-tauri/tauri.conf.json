@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "bpmn-editor",
+  "productName": "tauri-acp-kit",
   "version": "0.1.0",
-  "identifier": "com.sotayamashita.bpmn-editor",
+  "identifier": "com.sotayamashita.tauri-acp-kit",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "bpmn-editor",
+        "title": "tauri-acp-kit",
         "width": 800,
         "height": 600
       }

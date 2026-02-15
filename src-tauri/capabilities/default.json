@@ -5,6 +5,12 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
-    "opener:default"
+    "opener:default",
+    "acp:allow-acp-spawn-agent",
+    "acp:allow-acp-start-session",
+    "acp:allow-acp-send-prompt",
+    "acp:allow-acp-cancel",
+    "acp:allow-acp-set-model",
+    "acp:allow-acp-terminate-agent"
   ]
 }

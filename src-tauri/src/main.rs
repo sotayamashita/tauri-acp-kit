@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    bpmn_editor_lib::run()
+    tauri_acp_kit_lib::run()
 }
