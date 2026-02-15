@@ -111,4 +111,61 @@ mod tests {
             _ => panic!("Expected response"),
         }
     }
+
+    #[tokio::test]
+    async fn test_multiple_messages_in_sequence() {
+        let mut buffer = Vec::new();
+        {
+            let mut writer = JsonlWriter::new(&mut buffer);
+            writer
+                .write_message(&JsonRpcRequest::new(1, "first", serde_json::json!({})))
+                .await
+                .unwrap();
+            writer
+                .write_message(&JsonRpcRequest::new(2, "second", serde_json::json!({})))
+                .await
+                .unwrap();
+            writer
+                .write_message(&JsonRpcRequest::new(3, "third", serde_json::json!({})))
+                .await
+                .unwrap();
+        }
+
+        let mut reader = JsonlReader::new(buffer.as_slice());
+        let mut methods = Vec::new();
+        while let Some(msg) = reader.read_message().await.unwrap() {
+            if let JsonRpcMessage::Request(req) = msg {
+                methods.push(req.method);
+            }
+        }
+        assert_eq!(methods, vec!["first", "second", "third"]);
+    }
+
+    #[tokio::test]
+    async fn test_malformed_json_returns_error() {
+        let bad_json = b"this is not json\n";
+        let mut reader = JsonlReader::new(bad_json.as_slice());
+        assert!(reader.read_message().await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_empty_input_returns_none() {
+        let empty: &[u8] = b"";
+        let mut reader = JsonlReader::new(empty);
+        assert!(reader.read_message().await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_blank_lines_are_skipped() {
+        let input = format!(
+            "\n\n{}\n\n",
+            serde_json::to_string(&JsonRpcRequest::new(1, "test", serde_json::json!({}))).unwrap()
+        );
+        let mut reader = JsonlReader::new(input.as_bytes());
+        let message = reader.read_message().await.unwrap().unwrap();
+        match message {
+            JsonRpcMessage::Request(req) => assert_eq!(req.method, "test"),
+            _ => panic!("Expected request"),
+        }
+    }
 }

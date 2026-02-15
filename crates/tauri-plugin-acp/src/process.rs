@@ -18,7 +18,7 @@ pub enum OutgoingMessage {
 }
 
 /// A clonable handle to send requests to an agent
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct AgentHandle {
     #[allow(dead_code)]
     pub agent_id: String,
@@ -178,10 +178,7 @@ impl AgentProcess {
         while let Some(message) = message_rx.recv().await {
             match message {
                 OutgoingMessage::Request(request, response_tx) => {
-                    let id = match &request.id {
-                        crate::protocol::JsonRpcId::Number(n) => *n,
-                        crate::protocol::JsonRpcId::String(s) => s.parse().unwrap_or(0),
-                    };
+                    let id = request.id.as_i64();
 
                     tracing::debug!(id = id, method = %request.method, "Sending request to agent");
 
@@ -226,10 +223,7 @@ impl AgentProcess {
                     tracing::debug!(agent_id = %agent_id, "Received message: {:?}", message);
                     match message {
                         JsonRpcMessage::Response(response) => {
-                            let id = match &response.id {
-                                crate::protocol::JsonRpcId::Number(n) => *n,
-                                crate::protocol::JsonRpcId::String(s) => s.parse().unwrap_or(0),
-                            };
+                            let id = response.id.as_i64();
 
                             tracing::debug!(id = id, "Processing response");
                             let mut pending = pending_requests.write().await;
@@ -287,59 +281,14 @@ impl AgentProcess {
     }
 
     fn handle_notification<R: Runtime>(app: &AppHandle<R>, notification: JsonRpcNotification) {
-        match notification.method.as_str() {
-            // ACP: streaming text delta from agent message
-            // session/update with sessionUpdate containing agent_message_chunk
-            "session/update" => {
-                let session_id = notification
-                    .params
-                    .get("sessionId")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
-
-                // ACP sends: { sessionId, update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: "..." } } }
-                if let Some(update) = notification.params.get("update") {
-                    if let Some(update_type) = update.get("sessionUpdate").and_then(|v| v.as_str())
-                    {
-                        match update_type {
-                            "agent_message_chunk" => {
-                                if let Some(text) = update
-                                    .get("content")
-                                    .and_then(|c| c.get("text"))
-                                    .and_then(|v| v.as_str())
-                                {
-                                    tracing::debug!(
-                                        session_id = %session_id,
-                                        delta_len = text.len(),
-                                        "Agent message delta"
-                                    );
-                                    emit_event(
-                                        app,
-                                        AcpEvent::Delta {
-                                            session_id: session_id.to_string(),
-                                            text: text.to_string(),
-                                        },
-                                    );
-                                }
-                            }
-                            _ => {
-                                tracing::debug!(
-                                    session_id = %session_id,
-                                    update_type = %update_type,
-                                    "Session update"
-                                );
-                            }
-                        }
-                    }
-                }
-            }
-            _ => {
-                tracing::debug!(
-                    "Unknown notification: {} params: {:?}",
-                    notification.method,
-                    notification.params
-                );
-            }
+        if let Some(event) = parse_notification(&notification) {
+            emit_event(app, event);
+        } else {
+            tracing::debug!(
+                method = %notification.method,
+                "Unhandled notification: {:?}",
+                notification.params
+            );
         }
     }
 
@@ -347,8 +296,143 @@ impl AgentProcess {
         self.handle.clone()
     }
 
-    pub async fn terminate(&mut self) -> Result<(), Error> {
+    pub async fn terminate(&mut self) -> Result<Option<i32>, Error> {
         self.child.kill().await?;
-        Ok(())
+        let status = self.child.wait().await?;
+        Ok(status.code())
+    }
+}
+
+/// Parse an ACP notification into an event, if recognized.
+/// Separated from `handle_notification` for testability without Tauri AppHandle.
+fn parse_notification(notification: &JsonRpcNotification) -> Option<AcpEvent> {
+    match notification.method.as_str() {
+        // ACP: streaming text delta from agent message
+        // session/update with sessionUpdate containing agent_message_chunk
+        "session/update" => {
+            let session_id = notification
+                .params
+                .get("sessionId")
+                .and_then(|v| v.as_str())?;
+            let update = notification.params.get("update")?;
+            let update_type = update.get("sessionUpdate").and_then(|v| v.as_str())?;
+
+            match update_type {
+                "agent_message_chunk" => {
+                    let text = update
+                        .get("content")
+                        .and_then(|c| c.get("text"))
+                        .and_then(|v| v.as_str())?;
+                    tracing::debug!(
+                        session_id = %session_id,
+                        delta_len = text.len(),
+                        "Agent message delta"
+                    );
+                    Some(AcpEvent::Delta {
+                        session_id: session_id.to_string(),
+                        text: text.to_string(),
+                    })
+                }
+                _ => {
+                    tracing::debug!(
+                        session_id = %session_id,
+                        update_type = %update_type,
+                        "Session update"
+                    );
+                    None
+                }
+            }
+        }
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_notification_agent_message_chunk() {
+        let notification = JsonRpcNotification {
+            jsonrpc: Some("2.0".to_string()),
+            method: "session/update".to_string(),
+            params: serde_json::json!({
+                "sessionId": "sess-1",
+                "update": {
+                    "sessionUpdate": "agent_message_chunk",
+                    "content": { "type": "text", "text": "Hello world" }
+                }
+            }),
+        };
+
+        let event = parse_notification(&notification).unwrap();
+        match event {
+            AcpEvent::Delta { session_id, text } => {
+                assert_eq!(session_id, "sess-1");
+                assert_eq!(text, "Hello world");
+            }
+            _ => panic!("Expected Delta event"),
+        }
+    }
+
+    #[test]
+    fn parse_notification_unknown_update_type() {
+        let notification = JsonRpcNotification {
+            jsonrpc: Some("2.0".to_string()),
+            method: "session/update".to_string(),
+            params: serde_json::json!({
+                "sessionId": "sess-1",
+                "update": {
+                    "sessionUpdate": "tool_call",
+                    "content": {}
+                }
+            }),
+        };
+
+        assert!(parse_notification(&notification).is_none());
+    }
+
+    #[test]
+    fn parse_notification_unknown_method() {
+        let notification = JsonRpcNotification {
+            jsonrpc: Some("2.0".to_string()),
+            method: "unknown/method".to_string(),
+            params: serde_json::json!({}),
+        };
+
+        assert!(parse_notification(&notification).is_none());
+    }
+
+    #[test]
+    fn parse_notification_missing_session_id() {
+        let notification = JsonRpcNotification {
+            jsonrpc: Some("2.0".to_string()),
+            method: "session/update".to_string(),
+            params: serde_json::json!({
+                "update": {
+                    "sessionUpdate": "agent_message_chunk",
+                    "content": { "type": "text", "text": "Hello" }
+                }
+            }),
+        };
+
+        assert!(parse_notification(&notification).is_none());
+    }
+
+    #[test]
+    fn parse_notification_missing_content_text() {
+        let notification = JsonRpcNotification {
+            jsonrpc: Some("2.0".to_string()),
+            method: "session/update".to_string(),
+            params: serde_json::json!({
+                "sessionId": "sess-1",
+                "update": {
+                    "sessionUpdate": "agent_message_chunk",
+                    "content": { "type": "text" }
+                }
+            }),
+        };
+
+        assert!(parse_notification(&notification).is_none());
     }
 }

@@ -1,7 +1,7 @@
 use crate::error::Error;
 use crate::events::{emit_event, AcpEvent};
 use crate::process::AgentProcess;
-use crate::protocol::AgentSpec;
+use crate::protocol::{AgentSpec, JsonRpcResponse};
 use crate::state::{AcpModelInfo, PluginState, Session};
 use serde::Serialize;
 use tauri::{AppHandle, Runtime, State};
@@ -12,6 +12,65 @@ pub struct SessionInfoResponse {
     pub session_id: String,
     pub models: Vec<AcpModelInfo>,
     pub current_model_id: Option<String>,
+}
+
+/// Parsed fields from a session/new response
+struct ParsedSession {
+    session_id: String,
+    available_models: Vec<AcpModelInfo>,
+    current_model_id: Option<String>,
+    model: String,
+}
+
+/// Check a JSON-RPC response for errors, returning a descriptive `Error::Protocol` if present.
+fn check_response(response: &JsonRpcResponse, context: &str) -> Result<(), Error> {
+    if let Some(ref err) = response.error {
+        return Err(Error::Protocol(format!(
+            "{} failed: code={}, message={}",
+            context, err.code, err.message
+        )));
+    }
+    Ok(())
+}
+
+/// Parse session ID, models, and current model from a session/new result.
+fn parse_session_response(result: Option<&serde_json::Value>) -> ParsedSession {
+    // Extract session ID
+    let returned_session_id = result
+        .and_then(|r| r.get("sessionId"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    let session_id = if returned_session_id.is_empty() {
+        uuid::Uuid::new_v4().to_string()
+    } else {
+        returned_session_id.to_string()
+    };
+
+    // Extract models
+    // claude-code-acp: { models: { availableModels: [{modelId, name, description}], currentModelId } }
+    // codex-acp: { models: { available_models: [{model_id, name, description}], current_model_id } }
+    let models_obj = result.and_then(|r| r.get("models"));
+    let available_models = parse_available_models(models_obj);
+    let current_model_id = models_obj
+        .and_then(|m| {
+            m.get("currentModelId")
+                .or_else(|| m.get("current_model_id"))
+        })
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
+    let model = current_model_id
+        .clone()
+        .or_else(|| available_models.first().map(|m| m.id.clone()))
+        .unwrap_or_else(|| "claude".to_string());
+
+    ParsedSession {
+        session_id,
+        available_models,
+        current_model_id,
+        model,
+    }
 }
 
 #[tauri::command]
@@ -53,14 +112,7 @@ pub async fn acp_start_session<R: Runtime>(
     });
 
     let response = handle.send_request("initialize", init_params).await?;
-
-    if response.error.is_some() {
-        return Err(Error::Protocol(format!(
-            "Initialize failed: {:?}",
-            response.error
-        )));
-    }
-
+    check_response(&response, "initialize")?;
     tracing::debug!("Initialize response: {:?}", response);
 
     // ACP: session/new creates a new session (mcpServers required)
@@ -70,13 +122,7 @@ pub async fn acp_start_session<R: Runtime>(
     });
 
     let session_response = handle.send_request("session/new", session_params).await?;
-
-    if session_response.error.is_some() {
-        return Err(Error::Protocol(format!(
-            "session/new failed: {:?}",
-            session_response.error
-        )));
-    }
+    check_response(&session_response, "session/new")?;
 
     // Log raw response JSON for debugging model parsing issues
     if let Some(ref result_val) = session_response.result {
@@ -88,65 +134,23 @@ pub async fn acp_start_session<R: Runtime>(
         tracing::warn!("session/new returned no result field");
     }
 
-    let result = session_response.result.as_ref();
-
-    // Extract session ID
-    let returned_session_id = result
-        .and_then(|r| r.get("sessionId"))
-        .and_then(|v| v.as_str())
-        .unwrap_or_else(|| {
-            tracing::warn!("No sessionId in response, using generated UUID");
-            ""
-        });
-
-    let session_id = if returned_session_id.is_empty() {
-        uuid::Uuid::new_v4().to_string()
-    } else {
-        returned_session_id.to_string()
-    };
-
-    // Extract models from session/new response
-    // claude-code-acp: { models: { availableModels: [{modelId, name, description}], currentModelId } }
-    // codex-acp: { models: { available_models: [{model_id, name, description}], current_model_id } }
-    let models_obj = result.and_then(|r| r.get("models"));
+    let parsed = parse_session_response(session_response.result.as_ref());
 
     tracing::info!(
-        "session/new models field present: {}, raw: {}",
-        models_obj.is_some(),
-        models_obj
-            .map(|v| serde_json::to_string(v).unwrap_or_else(|_| "<serialize error>".into()))
-            .unwrap_or_else(|| "null".into())
-    );
-
-    let available_models = parse_available_models(models_obj);
-    let current_model_id = models_obj
-        .and_then(|m| {
-            m.get("currentModelId")
-                .or_else(|| m.get("current_model_id"))
-        })
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string());
-
-    let model = current_model_id
-        .clone()
-        .or_else(|| available_models.first().map(|m| m.id.clone()))
-        .unwrap_or_else(|| "claude".to_string());
-
-    tracing::info!(
-        session_id = %session_id,
-        model = %model,
-        models_count = available_models.len(),
-        model_ids = ?available_models.iter().map(|m| &m.id).collect::<Vec<_>>(),
+        session_id = %parsed.session_id,
+        model = %parsed.model,
+        models_count = parsed.available_models.len(),
+        model_ids = ?parsed.available_models.iter().map(|m| &m.id).collect::<Vec<_>>(),
         "Session created"
     );
 
     let session = Session {
-        id: session_id.clone(),
+        id: parsed.session_id.clone(),
         agent_id: agent_id.clone(),
         cwd,
-        model,
-        available_models: available_models.clone(),
-        current_model_id: current_model_id.clone(),
+        model: parsed.model,
+        available_models: parsed.available_models.clone(),
+        current_model_id: parsed.current_model_id.clone(),
     };
 
     state.add_session(session).await;
@@ -154,15 +158,15 @@ pub async fn acp_start_session<R: Runtime>(
     emit_event(
         &app,
         AcpEvent::SessionReady {
-            session_id: session_id.clone(),
+            session_id: parsed.session_id.clone(),
             agent_id,
         },
     );
 
     Ok(SessionInfoResponse {
-        session_id,
-        models: available_models,
-        current_model_id,
+        session_id: parsed.session_id,
+        models: parsed.available_models,
+        current_model_id: parsed.current_model_id,
     })
 }
 
@@ -329,13 +333,7 @@ pub async fn acp_set_model<R: Runtime>(
 
     // ACP wire method name is "session/set_model" (snake_case, from @agentclientprotocol/sdk AGENT_METHODS)
     let response = handle.send_request("session/set_model", params).await?;
-
-    if let Some(ref err) = response.error {
-        return Err(Error::Protocol(format!(
-            "setModel failed: code={}, message={}",
-            err.code, err.message
-        )));
-    }
+    check_response(&response, "session/set_model")?;
 
     state.update_session_model(&session_id, &model_id).await?;
 
@@ -355,13 +353,13 @@ pub async fn acp_terminate_agent<R: Runtime>(
         .await
         .ok_or_else(|| Error::AgentNotFound(agent_id.clone()))?;
 
-    agent.terminate().await?;
+    let exit_code = agent.terminate().await?;
 
     emit_event(
         &app,
         AcpEvent::AgentTerminated {
             agent_id,
-            exit_code: Some(0),
+            exit_code,
         },
     );
 
@@ -511,5 +509,107 @@ mod tests {
         let result = parse_available_models(Some(&models_obj));
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].name, "claude-sonnet-4-20250514");
+    }
+
+    #[test]
+    fn check_response_ok_on_success() {
+        let response = JsonRpcResponse {
+            jsonrpc: Some("2.0".to_string()),
+            id: crate::protocol::JsonRpcId::Number(1),
+            result: Some(serde_json::json!({"status": "ok"})),
+            error: None,
+        };
+        assert!(check_response(&response, "test").is_ok());
+    }
+
+    #[test]
+    fn check_response_err_on_error() {
+        let response = JsonRpcResponse {
+            jsonrpc: Some("2.0".to_string()),
+            id: crate::protocol::JsonRpcId::Number(1),
+            result: None,
+            error: Some(crate::protocol::JsonRpcError {
+                code: -32600,
+                message: "Invalid request".to_string(),
+                data: None,
+            }),
+        };
+        let err = check_response(&response, "initialize").unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("initialize failed"));
+        assert!(msg.contains("-32600"));
+        assert!(msg.contains("Invalid request"));
+    }
+
+    #[test]
+    fn parse_session_response_complete_data() {
+        let result = serde_json::json!({
+            "sessionId": "sess-abc",
+            "models": {
+                "availableModels": [
+                    { "modelId": "claude-sonnet-4-20250514", "name": "Sonnet 4" }
+                ],
+                "currentModelId": "claude-sonnet-4-20250514"
+            }
+        });
+
+        let parsed = parse_session_response(Some(&result));
+        assert_eq!(parsed.session_id, "sess-abc");
+        assert_eq!(parsed.available_models.len(), 1);
+        assert_eq!(
+            parsed.current_model_id.as_deref(),
+            Some("claude-sonnet-4-20250514")
+        );
+        assert_eq!(parsed.model, "claude-sonnet-4-20250514");
+    }
+
+    #[test]
+    fn parse_session_response_missing_session_id_generates_uuid() {
+        let result = serde_json::json!({
+            "models": { "availableModels": [] }
+        });
+
+        let parsed = parse_session_response(Some(&result));
+        assert!(!parsed.session_id.is_empty());
+        // Should be a valid UUID
+        assert!(uuid::Uuid::parse_str(&parsed.session_id).is_ok());
+    }
+
+    #[test]
+    fn parse_session_response_none_result() {
+        let parsed = parse_session_response(None);
+        assert!(uuid::Uuid::parse_str(&parsed.session_id).is_ok());
+        assert!(parsed.available_models.is_empty());
+        assert!(parsed.current_model_id.is_none());
+        assert_eq!(parsed.model, "claude");
+    }
+
+    #[test]
+    fn parse_session_response_defaults_model_to_first_available() {
+        let result = serde_json::json!({
+            "sessionId": "s1",
+            "models": {
+                "availableModels": [
+                    { "modelId": "first-model", "name": "First" },
+                    { "modelId": "second-model", "name": "Second" }
+                ]
+            }
+        });
+
+        let parsed = parse_session_response(Some(&result));
+        // No currentModelId, so model defaults to first available
+        assert_eq!(parsed.model, "first-model");
+        assert!(parsed.current_model_id.is_none());
+    }
+
+    #[test]
+    fn parse_session_response_defaults_model_to_claude() {
+        let result = serde_json::json!({
+            "sessionId": "s1"
+        });
+
+        let parsed = parse_session_response(Some(&result));
+        // No models at all, defaults to "claude"
+        assert_eq!(parsed.model, "claude");
     }
 }
