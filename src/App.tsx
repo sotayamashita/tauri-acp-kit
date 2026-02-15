@@ -4,14 +4,22 @@ import { AcpChat } from "./features/acp-chat";
 import { PROVIDERS } from "./features/acp-chat/providers";
 
 function App() {
-  const [providerId, setProviderId] = useState(
-    () => localStorage.getItem("acp-provider") || PROVIDERS[0].id,
-  );
+  const [providerId, setProviderId] = useState(() => {
+    try {
+      return localStorage.getItem("acp-provider") || PROVIDERS[0].id;
+    } catch {
+      return PROVIDERS[0].id;
+    }
+  });
   const provider = PROVIDERS.find((p) => p.id === providerId) || PROVIDERS[0];
 
   const handleProviderChange = (id: string) => {
     setProviderId(id);
-    localStorage.setItem("acp-provider", id);
+    try {
+      localStorage.setItem("acp-provider", id);
+    } catch {
+      // localStorage unavailable (incognito/private browsing, quota exceeded)
+    }
   };
 
   return (

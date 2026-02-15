@@ -1,11 +1,14 @@
 import type { KeyboardEvent } from "react";
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useState, useCallback } from "react";
 import type { AcpModel } from "tauri-acp";
 import type { ProviderConfig, ReasoningLevel } from "../providers";
 import { REASONING_LEVELS } from "../providers";
 import { Play, Square } from "lucide-react";
 import { formatModelId } from "../format-model-id";
 import { DropdownSelect } from "./DropdownSelect";
+
+// Hoisted to module level to avoid re-creating array on every render (rerender-memo-with-default-value)
+const REASONING_LEVEL_ITEMS: ReasoningLevel[] = [...REASONING_LEVELS];
 
 interface ChatInputProps {
   input: string;
@@ -39,12 +42,12 @@ export function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isFocused, setIsFocused] = useState(false);
 
-  useEffect(() => {
+  const resizeTextarea = useCallback(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
     }
-  }, [input]);
+  }, []);
 
   const submitMessage = useCallback(() => {
     if (input.trim() && !isLoading && isReady) {
@@ -75,7 +78,10 @@ export function ChatInput({
           <textarea
             ref={textareaRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              setInput(e.target.value);
+              resizeTextarea();
+            }}
             onKeyDown={handleKeyDown}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
@@ -114,9 +120,9 @@ export function ChatInput({
               disabled={!isReady || availableModels.length === 0}
             />
 
-            {selectedProvider?.supportsReasoningLevel && (
+            {selectedProvider?.supportsReasoningLevel ? (
               <DropdownSelect
-                items={[...REASONING_LEVELS]}
+                items={REASONING_LEVEL_ITEMS}
                 selectedId={reasoningLevel}
                 onSelect={(level) => onReasoningSelect(level)}
                 renderLabel={(level) => level.charAt(0).toUpperCase() + level.slice(1)}
@@ -124,7 +130,7 @@ export function ChatInput({
                 triggerLabel={reasoningLabel}
                 disabled={!isReady || availableModels.length === 0}
               />
-            )}
+            ) : null}
           </div>
         </div>
       </div>

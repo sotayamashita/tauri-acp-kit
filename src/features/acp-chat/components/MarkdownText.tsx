@@ -1,3 +1,4 @@
+import type { Components } from "react-markdown";
 import { memo, useState, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -124,62 +125,62 @@ function CodeBlock({ language, children }: CodeBlockProps) {
   );
 }
 
+// Hoisted to module level to avoid re-creation on every render (rendering-hoist-jsx)
+const REMARK_PLUGINS = [remarkGfm];
+
+const MARKDOWN_COMPONENTS: Components = {
+  code({ className, children, ...props }) {
+    const match = /language-(\w+)/.exec(className || "");
+    const isInline = !match && !className;
+
+    if (isInline) {
+      return (
+        <code className="inline-code" {...props}>
+          {children}
+        </code>
+      );
+    }
+
+    return <CodeBlock language={match?.[1] || ""} children={String(children).replace(/\n$/, "")} />;
+  },
+  p({ children }) {
+    return <p className="markdown-paragraph">{children}</p>;
+  },
+  ul({ children }) {
+    return <ul className="markdown-list">{children}</ul>;
+  },
+  ol({ children }) {
+    return <ol className="markdown-list markdown-list-ordered">{children}</ol>;
+  },
+  li({ children }) {
+    return <li className="markdown-list-item">{children}</li>;
+  },
+  a({ href, children }) {
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" className="markdown-link">
+        {children}
+      </a>
+    );
+  },
+  blockquote({ children }) {
+    return <blockquote className="markdown-blockquote">{children}</blockquote>;
+  },
+  table({ children }) {
+    return (
+      <div className="markdown-table-wrapper">
+        <table className="markdown-table">{children}</table>
+      </div>
+    );
+  },
+};
+
 interface MarkdownTextProps {
   content: string;
 }
 
 export const MarkdownText = memo(function MarkdownText({ content }: MarkdownTextProps) {
   return (
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
-      components={{
-        code({ className, children, ...props }) {
-          const match = /language-(\w+)/.exec(className || "");
-          const isInline = !match && !className;
-
-          if (isInline) {
-            return (
-              <code className="inline-code" {...props}>
-                {children}
-              </code>
-            );
-          }
-
-          return (
-            <CodeBlock language={match?.[1] || ""} children={String(children).replace(/\n$/, "")} />
-          );
-        },
-        p({ children }) {
-          return <p className="markdown-paragraph">{children}</p>;
-        },
-        ul({ children }) {
-          return <ul className="markdown-list">{children}</ul>;
-        },
-        ol({ children }) {
-          return <ol className="markdown-list markdown-list-ordered">{children}</ol>;
-        },
-        li({ children }) {
-          return <li className="markdown-list-item">{children}</li>;
-        },
-        a({ href, children }) {
-          return (
-            <a href={href} target="_blank" rel="noopener noreferrer" className="markdown-link">
-              {children}
-            </a>
-          );
-        },
-        blockquote({ children }) {
-          return <blockquote className="markdown-blockquote">{children}</blockquote>;
-        },
-        table({ children }) {
-          return (
-            <div className="markdown-table-wrapper">
-              <table className="markdown-table">{children}</table>
-            </div>
-          );
-        },
-      }}
-    >
+    <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={MARKDOWN_COMPONENTS}>
       {content}
     </ReactMarkdown>
   );

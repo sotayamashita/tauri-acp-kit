@@ -34,9 +34,9 @@ export function ChatMessageList({ messages, isReady, isLoading }: ChatMessageLis
             <div className="acp-chat-message-ai">
               {msg.content ? (
                 <MarkdownText content={msg.content} />
-              ) : (
-                showTypingIndicator && <TypingIndicator />
-              )}
+              ) : showTypingIndicator ? (
+                <TypingIndicator />
+              ) : null}
             </div>
           ) : (
             <div className="acp-chat-message-user">

@@ -2,9 +2,13 @@ import { useState, useCallback, useRef } from "react";
 import { REASONING_LEVELS, type ReasoningLevel } from "../providers";
 
 function loadReasoningLevel(agentId: string): ReasoningLevel | null {
-  const stored = localStorage.getItem(`acp-reasoning-level:${agentId}`);
-  if (stored && (REASONING_LEVELS as readonly string[]).includes(stored)) {
-    return stored as ReasoningLevel;
+  try {
+    const stored = localStorage.getItem(`acp-reasoning-level:${agentId}`);
+    if (stored && (REASONING_LEVELS as readonly string[]).includes(stored)) {
+      return stored as ReasoningLevel;
+    }
+  } catch {
+    // localStorage unavailable (incognito/private browsing, quota exceeded)
   }
   return null;
 }
@@ -32,7 +36,11 @@ export function useReasoningLevel(options: UseReasoningLevelOptions): UseReasoni
   const setReasoningLevel = useCallback(
     (level: ReasoningLevel) => {
       setReasoningLevelState(level);
-      localStorage.setItem(`acp-reasoning-level:${options.agentId}`, level);
+      try {
+        localStorage.setItem(`acp-reasoning-level:${options.agentId}`, level);
+      } catch {
+        // localStorage unavailable (incognito/private browsing, quota exceeded)
+      }
     },
     [options.agentId],
   );
