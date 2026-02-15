@@ -160,6 +160,9 @@
 }
 
 .acp-chat-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
   color: var(--chat-accent);
   font-variant-numeric: tabular-nums;
@@ -169,13 +172,38 @@
   animation: pulse 1.5s infinite;
 }
 
+.acp-chat-status.generating {
+  animation: pulse 1s infinite;
+}
+
+.acp-chat-status.error {
+  color: var(--chat-error);
+}
+
+/* Status dot indicator */
+.acp-chat-status-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.acp-chat-status-dot.ready {
+  background: var(--chat-success);
+}
+
+.acp-chat-status-dot.error {
+  background: var(--chat-error);
+}
+
 .acp-chat-header-right {
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-.acp-chat-reset-btn {
+/* Unified header button (New Chat, Theme toggle, Provider switch) */
+.acp-chat-header-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -188,38 +216,19 @@
   color: var(--chat-accent);
   cursor: pointer;
   transition: background 0.15s;
+  touch-action: manipulation;
 }
 
-.acp-chat-reset-btn:hover:not(:disabled) {
+.acp-chat-header-btn:hover:not(:disabled) {
   background: var(--chat-accent-alpha-10);
 }
 
-.acp-chat-reset-btn:disabled {
+.acp-chat-header-btn:disabled {
   color: var(--chat-disabled);
   cursor: not-allowed;
 }
 
-/* Theme toggle */
-.acp-chat-theme-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  color: var(--chat-accent);
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.acp-chat-theme-btn:hover {
-  background: var(--chat-accent-alpha-10);
-}
-
-.acp-chat-theme-btn:focus-visible {
+.acp-chat-header-btn:focus-visible {
   outline: 2px solid var(--chat-accent);
   outline-offset: 2px;
 }
@@ -252,8 +261,109 @@
   align-items: center;
   justify-content: center;
   height: 100%;
+  width: 100%;
   color: var(--chat-accent);
   font-size: 14px;
+}
+
+.acp-chat-empty-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.acp-chat-empty-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--chat-text);
+}
+
+.acp-chat-empty-model {
+  margin: 0;
+  font-size: 13px;
+  color: var(--chat-text-secondary);
+}
+
+/* Suggested prompt chips */
+.acp-chat-suggest-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.acp-chat-suggest-chip {
+  padding: 6px 14px;
+  background: var(--chat-surface);
+  border: 1px solid var(--chat-border);
+  border-radius: 16px;
+  font-size: 13px;
+  color: var(--chat-text-secondary);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+  touch-action: manipulation;
+}
+
+.acp-chat-suggest-chip:hover {
+  background: var(--chat-accent-alpha-08);
+  border-color: var(--chat-accent);
+  color: var(--chat-accent);
+}
+
+.acp-chat-suggest-chip:focus-visible {
+  outline: 2px solid var(--chat-accent);
+  outline-offset: 2px;
+}
+
+/* Scroll-to-bottom FAB */
+.acp-chat-scroll-fab {
+  position: sticky;
+  bottom: 8px;
+  align-self: flex-end;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: var(--chat-surface);
+  border: 1px solid var(--chat-border);
+  border-radius: 50%;
+  color: var(--chat-text-secondary);
+  cursor: pointer;
+  box-shadow: var(--chat-shadow);
+  transition:
+    background 0.15s,
+    color 0.15s;
+  touch-action: manipulation;
+  animation: fabFadeIn 0.15s ease-out;
+}
+
+.acp-chat-scroll-fab:hover {
+  background: var(--chat-accent-alpha-10);
+  color: var(--chat-accent);
+}
+
+.acp-chat-scroll-fab:focus-visible {
+  outline: 2px solid var(--chat-accent);
+  outline-offset: 2px;
+}
+
+@keyframes fabFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Message */
@@ -825,6 +935,8 @@
   .tool-call-status-icon.pending,
   .tool-call-status-icon.running,
   .acp-chat-status.connecting,
+  .acp-chat-status.generating,
+  .acp-chat-scroll-fab,
   .typing-dot,
   .acp-chat-message {
     animation: none;

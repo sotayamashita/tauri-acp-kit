@@ -30,7 +30,9 @@ describe("App", () => {
 
   it("header shows current provider name instead of New Thread", () => {
     render(<App />);
-    expect(screen.getByText("Claude Code")).toBeInTheDocument();
+    const headerTitle = document.querySelector(".acp-chat-header-title");
+    expect(headerTitle).toBeInTheDocument();
+    expect(headerTitle!.textContent).toBe("Claude Code");
     expect(screen.queryByText("New Thread")).not.toBeInTheDocument();
   });
 
@@ -54,7 +56,8 @@ describe("App", () => {
     await waitFor(() => {
       expect(localStorage.getItem("acp-provider")).toBe("codex-acp");
     });
-    expect(screen.getByText("Codex")).toBeInTheDocument();
+    const headerTitle = document.querySelector(".acp-chat-header-title");
+    expect(headerTitle!.textContent).toBe("Codex");
   });
 
   it("toolbar has no provider dropdown (moved to header)", () => {
@@ -112,7 +115,8 @@ describe("App", () => {
   it("restores provider from localStorage on mount", () => {
     localStorage.setItem("acp-provider", "codex-acp");
     render(<App />);
-    expect(screen.getByText("Codex")).toBeInTheDocument();
+    const headerTitle = document.querySelector(".acp-chat-header-title");
+    expect(headerTitle!.textContent).toBe("Codex");
   });
 
   it("persists reasoning level to localStorage when changed", async () => {

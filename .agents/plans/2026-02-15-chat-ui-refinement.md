@@ -38,7 +38,15 @@ Deliverables:
   - Prism syntax highlighting adapted via CSS custom properties
   - Fixed transition: all → specific properties, cleaned up duplicate declarations
   - Added prefers-reduced-motion for all animations, text-wrap: pretty, font-variant-numeric: tabular-nums
-- [ ] Phase 17: Interaction improvements (New Chat, keyboard shortcuts) — independent
+- [x] (2026-02-16 00:00JST) Phase 17: Interaction improvements
+  - "New Chat" button (RotateCcw icon) with reset() integration, disabled when no messages
+  - Keyboard shortcut Cmd+Shift+N (macOS) / Ctrl+Shift+N for new chat
+  - Scroll-to-bottom FAB with IntersectionObserver on sentinel element
+  - Empty state redesign: provider name, model name, 3 suggested prompt chips
+  - Status lifecycle: connecting (pulse), ready (green dot), generating (pulse), error (red dot + "Disconnected")
+  - Unified header buttons (.acp-chat-header-btn) with :focus-visible and touch-action: manipulation
+  - IntersectionObserver mock added to test setup for jsdom
+  - 9 new tests (81 total), all passing
 
 ## Surprises & Discoveries
 
