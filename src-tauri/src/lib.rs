@@ -8,6 +8,11 @@ fn greet(name: &str) -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Fix PATH for GUI apps: macOS/Linux GUI apps don't inherit shell PATH
+    // from dotfiles (.zshrc, .bash_profile, etc.), so executables like
+    // claude-code-acp or codex-acp installed via npm/Homebrew won't be found.
+    let _ = fix_path_env::fix();
+
     // Initialize tracing with debug level for acp plugin
     tracing_subscriber::registry()
         .with(

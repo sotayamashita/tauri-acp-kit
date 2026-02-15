@@ -4,12 +4,21 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct AcpModelInfo {
+    pub id: String,
+    pub name: String,
+    pub description: Option<String>,
+}
+
 #[derive(Clone)]
 pub struct Session {
     pub id: String,
     pub agent_id: String,
     pub cwd: String,
     pub model: String,
+    pub available_models: Vec<AcpModelInfo>,
+    pub current_model_id: Option<String>,
 }
 
 pub struct PluginState {
@@ -71,6 +80,20 @@ impl PluginState {
             .get(session_id)
             .cloned()
             .ok_or_else(|| Error::SessionNotFound(session_id.to_string()))
+    }
+
+    pub async fn update_session_model(
+        &self,
+        session_id: &str,
+        model_id: &str,
+    ) -> Result<(), Error> {
+        let mut sessions = self.sessions.write().await;
+        let session = sessions
+            .get_mut(session_id)
+            .ok_or_else(|| Error::SessionNotFound(session_id.to_string()))?;
+        session.current_model_id = Some(model_id.to_string());
+        session.model = model_id.to_string();
+        Ok(())
     }
 
     #[allow(dead_code)]

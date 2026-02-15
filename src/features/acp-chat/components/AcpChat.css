@@ -484,6 +484,10 @@
   align-items: center;
 }
 
+.acp-chat-dropdown-wrapper {
+  position: relative;
+}
+
 .acp-chat-dropdown {
   display: flex;
   align-items: center;
@@ -498,12 +502,65 @@
   transition: background 0.15s;
 }
 
-.acp-chat-dropdown:hover {
+.acp-chat-dropdown:hover:not(:disabled) {
   background: rgba(0, 0, 0, 0.05);
+}
+
+.acp-chat-dropdown:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .acp-chat-dropdown svg {
   opacity: 0.6;
+}
+
+.acp-chat-dropdown-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  min-width: 160px;
+  margin-bottom: 4px;
+  padding: 4px;
+  background: #fdfbf7;
+  border: 1px solid #d4cfc0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  z-index: 10;
+}
+
+/* Header provider dropdown opens downward */
+.acp-chat-provider-dropdown {
+  bottom: auto;
+  top: 100%;
+  right: 0;
+  left: auto;
+  margin-bottom: 0;
+  margin-top: 4px;
+}
+
+.acp-chat-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #2d2d2d;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.acp-chat-dropdown-item:hover {
+  background: rgba(139, 115, 85, 0.08);
+}
+
+.acp-chat-dropdown-item.selected {
+  color: #8b7355;
+  font-weight: 500;
+  background: rgba(139, 115, 85, 0.06);
 }
 
 .acp-chat-toolbar-btn {

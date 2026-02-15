@@ -24,3 +24,4 @@ tauri-plugin-acp = { path = "../crates/tauri-plugin-acp" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+fix-path-env = { git = "https://github.com/tauri-apps/fix-path-env-rs" }

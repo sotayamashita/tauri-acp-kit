@@ -1,5 +1,8 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
   "permissions": {
     "allow": [
       "Bash(pnpm install:*)",
@@ -53,6 +56,15 @@
           {
             "type": "command",
             "command": "file_path=$(jq -r '.tool_input.file_path') && if echo \"$file_path\" | grep -qE '\\.(rs)$'; then cargo fmt \"$file_path\"; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "file_path=$(jq -r '.tool_input.file_path') && if echo \"$file_path\" | grep -qE '\\.rs$'; then cargo check --message-format=short 2>&1; fi"
           }
         ]
       }

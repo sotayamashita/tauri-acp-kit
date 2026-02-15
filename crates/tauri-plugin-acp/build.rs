@@ -3,6 +3,7 @@ const COMMANDS: &[&str] = &[
     "acp_start_session",
     "acp_send_prompt",
     "acp_cancel",
+    "acp_set_model",
     "acp_terminate_agent",
 ];
 

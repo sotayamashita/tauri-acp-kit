@@ -13,6 +13,13 @@ beforeAll(() => {
 
   // Mock scrollIntoView for jsdom (not implemented)
   Element.prototype.scrollIntoView = vi.fn();
+
+  // Mock Tauri event plugin internals for listen/unlisten.
+  (window as unknown as Record<string, unknown>).__TAURI_EVENT_PLUGIN_INTERNALS__ = {
+    convertFileSrc: (filePath: string) => filePath,
+    registerListener: () => {},
+    unregisterListener: () => {},
+  };
 });
 
 // Cleanup after each test

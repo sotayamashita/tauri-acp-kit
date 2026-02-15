@@ -23,6 +23,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::acp_start_session,
             commands::acp_send_prompt,
             commands::acp_cancel,
+            commands::acp_set_model,
             commands::acp_terminate_agent,
         ])
         .setup(|app, _api| {

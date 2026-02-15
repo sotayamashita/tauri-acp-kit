@@ -1,12 +1,16 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { AgentSpec } from "./types";
+import type { AgentSpec, SessionInfo } from "./types";
 
 export async function spawnAgent(spec: AgentSpec): Promise<string> {
   return invoke<string>("plugin:acp|acp_spawn_agent", { spec });
 }
 
-export async function startSession(agentId: string, cwd: string): Promise<string> {
-  return invoke<string>("plugin:acp|acp_start_session", { agentId, cwd });
+export async function startSession(agentId: string, cwd: string): Promise<SessionInfo> {
+  return invoke<SessionInfo>("plugin:acp|acp_start_session", { agentId, cwd });
+}
+
+export async function setModel(sessionId: string, modelId: string): Promise<void> {
+  return invoke<void>("plugin:acp|acp_set_model", { sessionId, modelId });
 }
 
 export async function sendPrompt(sessionId: string, prompt: string): Promise<string> {

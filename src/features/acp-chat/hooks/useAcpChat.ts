@@ -1,6 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { AcpAgent, AcpSession } from "tauri-acp";
+import type { AcpModel } from "tauri-acp";
 import type { Message, UseAcpChatOptions, UseAcpChatReturn } from "../types";
+import { REASONING_LEVELS, type ReasoningLevel } from "../providers";
+import { formatAcpError } from "../format-error";
+
+function loadReasoningLevel(agentId: string): ReasoningLevel | null {
+  const stored = localStorage.getItem(`acp-reasoning-level:${agentId}`);
+  if (stored && (REASONING_LEVELS as readonly string[]).includes(stored)) {
+    return stored as ReasoningLevel;
+  }
+  return null;
+}
 
 export function useAcpChat(options: UseAcpChatOptions): UseAcpChatReturn {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -8,6 +19,12 @@ export function useAcpChat(options: UseAcpChatOptions): UseAcpChatReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [isReady, setIsReady] = useState(false);
+  const [availableModels, setAvailableModels] = useState<AcpModel[]>([]);
+  const [currentModelId, setCurrentModelId] = useState<string | null>(null);
+  const [reasoningLevel, setReasoningLevelState] = useState<ReasoningLevel | null>(() => {
+    if (!options.supportsReasoningLevel) return null;
+    return loadReasoningLevel(options.agentSpec.id) || "medium";
+  });
 
   const agentRef = useRef<AcpAgent | null>(null);
   const sessionRef = useRef<AcpSession | null>(null);
@@ -83,14 +100,19 @@ export function useAcpChat(options: UseAcpChatOptions): UseAcpChatReturn {
         });
         unlistenersRef.current.push(errorUnlisten);
 
+        setAvailableModels(session.models);
+        setCurrentModelId(session.currentModelId);
         console.log("[AcpChat] Ready!");
         setIsReady(true);
       } catch (err) {
         console.error("[AcpChat] Initialization failed:", err);
         if (mounted) {
-          const error = err as Error;
-          setError(error);
-          options.onError?.(error);
+          const raw = err as Error;
+          const friendly = new Error(
+            formatAcpError(raw.message ?? String(err), options.agentSpec.executable),
+          );
+          setError(friendly);
+          options.onError?.(friendly);
         }
       }
     };
@@ -164,5 +186,47 @@ export function useAcpChat(options: UseAcpChatOptions): UseAcpChatReturn {
     streamingContentRef.current = "";
   }, []);
 
-  return { messages, input, setInput, isLoading, error, isReady, append, stop, reset };
+  const reasoningLevelRef = useRef(reasoningLevel);
+  reasoningLevelRef.current = reasoningLevel;
+
+  const handleSetModel = useCallback(
+    async (modelId: string) => {
+      if (!sessionRef.current) return;
+      const wireModelId =
+        options.supportsReasoningLevel && reasoningLevelRef.current
+          ? `${modelId}/${reasoningLevelRef.current}`
+          : modelId;
+      await sessionRef.current.setModel(wireModelId);
+      setCurrentModelId(modelId);
+    },
+    [options.supportsReasoningLevel],
+  );
+
+  const handleSetReasoningLevel = useCallback(
+    async (level: ReasoningLevel) => {
+      setReasoningLevelState(level);
+      localStorage.setItem(`acp-reasoning-level:${options.agentSpec.id}`, level);
+      if (!sessionRef.current || !currentModelId) return;
+      const wireModelId = `${currentModelId}/${level}`;
+      await sessionRef.current.setModel(wireModelId);
+    },
+    [currentModelId, options.agentSpec.id],
+  );
+
+  return {
+    messages,
+    input,
+    setInput,
+    isLoading,
+    error,
+    isReady,
+    availableModels,
+    currentModelId,
+    reasoningLevel,
+    append,
+    stop,
+    reset,
+    setModel: handleSetModel,
+    setReasoningLevel: handleSetReasoningLevel,
+  };
 }
