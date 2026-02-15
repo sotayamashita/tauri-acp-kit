@@ -587,6 +587,197 @@
 }
 
 /* ============================================
+   Thinking Block
+   ============================================ */
+.thinking-block {
+  border-left: 3px solid #c4b99a;
+  margin: 4px 0;
+  border-radius: 2px;
+}
+
+.thinking-block-summary {
+  cursor: pointer;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #6b6b6b;
+  user-select: none;
+}
+
+.thinking-block-summary:focus-visible {
+  outline: 2px solid #8b7355;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.thinking-block-content {
+  padding: 4px 10px 8px;
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+
+/* ============================================
+   Tool Call Card
+   ============================================ */
+.tool-call-card {
+  margin: 4px 0;
+  border: 1px solid #d4cfc0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.tool-call-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: none;
+  border: none;
+  color: #2d2d2d;
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  touch-action: manipulation;
+}
+
+.tool-call-header:disabled {
+  cursor: default;
+}
+
+.tool-call-header:focus-visible {
+  outline: 2px solid #8b7355;
+  outline-offset: -2px;
+  border-radius: 6px;
+}
+
+.tool-call-name {
+  flex: 1;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-call-status-icon {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  font-size: 10px;
+  line-height: 10px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.tool-call-status-icon.pending {
+  background: #b89b6a;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.tool-call-status-icon.running {
+  background: #5b8db8;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.tool-call-status-icon.completed {
+  background: none;
+  color: #4a7c4e;
+  font-weight: bold;
+}
+
+.tool-call-status-icon.failed {
+  background: none;
+  color: #d64545;
+  font-weight: bold;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tool-call-status-icon.pending,
+  .tool-call-status-icon.running {
+    animation: none;
+  }
+}
+
+.tool-call-content {
+  padding: 8px 10px;
+  border-top: 1px solid #d4cfc0;
+  background: #f0ebe0;
+  overflow-x: auto;
+}
+
+.tool-call-content pre {
+  margin: 0;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* ============================================
+   Plan View
+   ============================================ */
+.plan-view {
+  margin: 4px 0;
+  border: 1px solid #d4cfc0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.plan-header {
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #6b6b6b;
+  border-bottom: 1px solid #d4cfc0;
+}
+
+.plan-tasks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.plan-task {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+}
+
+.plan-task + .plan-task {
+  border-top: 1px solid #eae5da;
+}
+
+.plan-task-icon {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+}
+
+.plan-task-icon.completed {
+  color: #4a7c4e;
+}
+
+.plan-task-icon.in-progress {
+  color: #5b8db8;
+}
+
+.plan-task-icon.pending {
+  color: #999;
+}
+
+/* ============================================
    Scrollbar
    ============================================ */
 .acp-chat-messages::-webkit-scrollbar {

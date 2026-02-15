@@ -1,7 +1,7 @@
 import { useRef, useEffect } from "react";
 import type { Message } from "../types";
 import { getMessageText } from "../types";
-import { MarkdownText } from "./MarkdownText";
+import { ContentBlockRenderer } from "./ContentBlockRenderer";
 import { TypingIndicator } from "./TypingIndicator";
 
 interface ChatMessageListProps {
@@ -29,26 +29,25 @@ export function ChatMessageList({ messages, isReady, isLoading }: ChatMessageLis
         </div>
       )}
 
-      {messages.map((msg) => {
-        const text = getMessageText(msg);
-        return (
-          <div key={msg.id} className={`acp-chat-message ${msg.role}`}>
-            {msg.role === "assistant" ? (
-              <div className="acp-chat-message-ai">
-                {text ? (
-                  <MarkdownText content={text} />
-                ) : showTypingIndicator && msg === lastMessage ? (
-                  <TypingIndicator />
-                ) : null}
-              </div>
-            ) : (
-              <div className="acp-chat-message-user">
-                <span>{text}</span>
-              </div>
-            )}
-          </div>
-        );
-      })}
+      {messages.map((msg) => (
+        <div key={msg.id} className={`acp-chat-message ${msg.role}`}>
+          {msg.role === "assistant" ? (
+            <div className="acp-chat-message-ai">
+              {msg.blocks.length > 0 ? (
+                msg.blocks.map((block, i) => (
+                  <ContentBlockRenderer key={`${msg.id}-${i}`} block={block} />
+                ))
+              ) : showTypingIndicator && msg === lastMessage ? (
+                <TypingIndicator />
+              ) : null}
+            </div>
+          ) : (
+            <div className="acp-chat-message-user">
+              <span>{getMessageText(msg)}</span>
+            </div>
+          )}
+        </div>
+      ))}
 
       <div ref={messagesEndRef} />
     </div>
