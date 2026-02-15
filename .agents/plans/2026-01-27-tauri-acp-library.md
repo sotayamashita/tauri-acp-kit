@@ -99,6 +99,18 @@ Deliverables:
   - Step 11.7: Updated AcpChat to pass `supportsReasoningLevel` to hook
   - Step 11.8: TDD tests — 15 new tests across 4 cycles (providers 4, hook reasoning 5, App UI 9, persistence 2)
   - DeepWiki verified: codex-acp `parse_model_id` splits `{preset_id}/{reasoning_effort}`, claude-code-acp uses plain modelId
+- [x] (2026-02-15) Phase 12: Code review, refactoring, and test reinforcement (Agent Team)
+  - Team: lead + rust-specialist + frontend-specialist (plan approval mode)
+  - Rust: Extracted `check_response()`, `parse_session_response()`, `parse_notification()` helpers
+  - Rust: Removed redundant `agent_handles` HashMap from PluginState
+  - Rust: Fixed hardcoded `exit_code: Some(0)` to use actual process exit code
+  - Rust: 28 new unit tests (14 → 42 total)
+  - Frontend: Split `useAcpChat` (232→118 lines) into `useAcpSession` + `useReasoningLevel`
+  - Frontend: Split `AcpChat` (288→134 lines) into `DropdownSelect` + `ChatMessageList` + `ChatInput`
+  - Frontend: Extracted `onSessionEvent` helper in AcpSession SDK
+  - Frontend: 23 new Vitest tests (37 → 60 total)
+  - Cross-layer: Fixed `Option<T>` null vs undefined mismatch (3 fields)
+  - Commits: `refactor(acp)`, `refactor(acp-chat)`, `fix(acp)`
 
 ## Surprises & Discoveries
 
@@ -258,6 +270,23 @@ Deliverables:
   - Fix: Changed `acp_set_model` to send `"session/set_model"` (correct wire name), removed fallback logic
   - File: `crates/tauri-plugin-acp/src/commands.rs` (`acp_set_model`)
 
+- (2026-02-15) Rust `Option<T>` serializes `None` as JSON `null`, not absent field
+  - TypeScript `field?: T` expects the field to be **absent** (undefined), not `null`
+  - `null !== undefined` in JavaScript strict equality → caused global errors to be silently dropped
+  - Specifically: `AcpEvent::Error { session_id: None }` → `{ session_id: null }` → `AcpSession.onError` checked `event.session_id !== undefined` → `null !== undefined` is `true` → callback skipped
+  - Resolution: Add `#[serde(skip_serializing_if = "Option::is_none")]` to all `Option<T>` fields that cross the Rust↔TypeScript boundary
+  - Learning: **Every `Option<T>` in a Rust struct that serializes to JSON for TypeScript consumption MUST have `skip_serializing_if = "Option::is_none"`** if the TypeScript side uses `field?: T` (optional property). Otherwise use `field: T | null` on the TypeScript side.
+
+- (2026-02-15) Agent team review found bugs that single-author implementation missed
+  - The null/undefined mismatch existed since Phase 2 but was never caught because global errors are rare in normal testing
+  - Cross-layer consistency checks (Rust serde attributes vs TypeScript type definitions) should be part of the CI or review checklist
+  - A dedicated cross-layer-check agent was valuable — automated field-by-field comparison found what manual review overlooked
+
+- (2026-02-15) `parse_notification` was untestable without AppHandle extraction
+  - `handle_notification` mixed parsing logic with Tauri `emit_event` calls
+  - Extracting `parse_notification` as a pure function (`JsonRpcNotification → Option<AcpEvent>`) made it unit-testable without spinning up a Tauri app
+  - Learning: **Separate pure parsing logic from side-effectful emission** in Rust Tauri plugins to enable unit testing
+
 ## Decision Log
 
 - Decision: TypeScript SDK package name is `tauri-acp` (no scope)
@@ -359,6 +388,14 @@ Deliverables:
   - DeepWiki verified claude-code-acp `unstable_setSessionModel` uses plain modelId (no reasoning)
   - `reasoningLevelRef` pattern needed to avoid stale closures in `handleSetModel`
   - `reset` removed from AcpChat UI destructuring — "+" button replaced reset functionality
+
+- (2026-02-15) **Phase 12: Agent team code review and refactoring — Key learnings**
+  - **Agent team structure**: 2 specialists (Rust, Frontend) + 1 lead with plan approval mode worked well for parallel domain-specific review. Each specialist stayed within their file ownership boundaries (no merge conflicts)
+  - **Plan approval as quality gate**: Catching R1 (already-implemented `JsonRpcId::as_i64`) before execution saved wasted effort. The specialist had read a stale version of the code
+  - **Cross-layer audit is essential**: A dedicated cross-layer-check agent found the null/undefined mismatch that both specialists and the lead's manual review missed. Automated field-by-field comparison of Rust serde output vs TypeScript types should be standard practice
+  - **Refactoring metrics**: useAcpChat 232→118 lines (-49%), AcpChat 288→134 lines (-53%), total test count 51→102 (+100%)
+  - **Pure function extraction is highest-value refactoring**: `parse_notification` and `parse_session_response` were the most impactful changes — they made critical protocol logic unit-testable without requiring Tauri AppHandle or full process setup
+  - **Redundant state maps create synchronization risks**: The `agent_handles` map duplicated data already accessible via `AgentProcess::handle()`. Removing it simplified 3 methods and eliminated a class of potential inconsistency bugs
 
 ## Known Issues
 
