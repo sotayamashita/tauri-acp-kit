@@ -221,7 +221,7 @@ describe("useAcpChat message operations", () => {
 
     expect(result.current.messages).toHaveLength(2);
     expect(result.current.messages[0].role).toBe("user");
-    expect(result.current.messages[0].content).toBe("Hello");
+    expect(result.current.messages[0].blocks).toEqual([{ type: "text", text: "Hello" }]);
     expect(result.current.messages[1].role).toBe("assistant");
   });
 

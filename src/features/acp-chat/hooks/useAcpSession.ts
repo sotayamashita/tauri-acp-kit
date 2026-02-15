@@ -73,7 +73,10 @@ export function useAcpSession(
           setMessages((prev) => {
             const last = prev[prev.length - 1];
             if (last?.role === "assistant") {
-              return [...prev.slice(0, -1), { ...last, content: streamingContentRef.current }];
+              return [
+                ...prev.slice(0, -1),
+                { ...last, blocks: [{ type: "text" as const, text: streamingContentRef.current }] },
+              ];
             }
             return prev;
           });

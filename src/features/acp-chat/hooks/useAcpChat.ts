@@ -39,14 +39,14 @@ export function useAcpChat(options: UseAcpChatOptions): UseAcpChatReturn {
       const userMessage: Message = {
         id: crypto.randomUUID(),
         role: "user",
-        content,
+        blocks: [{ type: "text", text: content }],
         createdAt: new Date(),
       };
 
       const assistantMessage: Message = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: "",
+        blocks: [],
         createdAt: new Date(),
       };
 

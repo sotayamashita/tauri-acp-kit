@@ -1,5 +1,6 @@
 import { useRef, useEffect } from "react";
 import type { Message } from "../types";
+import { getMessageText } from "../types";
 import { MarkdownText } from "./MarkdownText";
 import { TypingIndicator } from "./TypingIndicator";
 
@@ -18,7 +19,7 @@ export function ChatMessageList({ messages, isReady, isLoading }: ChatMessageLis
 
   const lastMessage = messages[messages.length - 1];
   const showTypingIndicator =
-    isLoading && lastMessage?.role === "assistant" && !lastMessage.content;
+    isLoading && lastMessage?.role === "assistant" && lastMessage.blocks.length === 0;
 
   return (
     <div className="acp-chat-messages">
@@ -28,23 +29,26 @@ export function ChatMessageList({ messages, isReady, isLoading }: ChatMessageLis
         </div>
       )}
 
-      {messages.map((msg) => (
-        <div key={msg.id} className={`acp-chat-message ${msg.role}`}>
-          {msg.role === "assistant" ? (
-            <div className="acp-chat-message-ai">
-              {msg.content ? (
-                <MarkdownText content={msg.content} />
-              ) : showTypingIndicator ? (
-                <TypingIndicator />
-              ) : null}
-            </div>
-          ) : (
-            <div className="acp-chat-message-user">
-              <span>{msg.content}</span>
-            </div>
-          )}
-        </div>
-      ))}
+      {messages.map((msg) => {
+        const text = getMessageText(msg);
+        return (
+          <div key={msg.id} className={`acp-chat-message ${msg.role}`}>
+            {msg.role === "assistant" ? (
+              <div className="acp-chat-message-ai">
+                {text ? (
+                  <MarkdownText content={text} />
+                ) : showTypingIndicator && msg === lastMessage ? (
+                  <TypingIndicator />
+                ) : null}
+              </div>
+            ) : (
+              <div className="acp-chat-message-user">
+                <span>{text}</span>
+              </div>
+            )}
+          </div>
+        );
+      })}
 
       <div ref={messagesEndRef} />
     </div>
