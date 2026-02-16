@@ -46,6 +46,9 @@ Deliverables:
   - [x] (2026-02-16 23:00JST) Root cause: ACP protocol requires `initialize → authenticate → session/new` flow. Our code skipped `authenticate`. codex-acp's `check_auth()` guard fails without it.
   - [x] (2026-02-16 23:00JST) Fix: Parse `authMethods` from initialize response, call `authenticate` with first available method before session/new. Also improved `check_response` to include JSON-RPC error `data` field.
   - [x] (2026-02-16 23:00JST) False lead: Initially suspected `mcpServers: []` vs `{}` format. DeepWiki for codex (monorepo) said map, but actual codex-acp uses `Vec<McpServer>` (array). Reverted.
+- [x] Bugfix: codex-acp session/new "cwd is not absolute" error
+  - [x] (2026-02-17 00:00JST) Root cause: Frontend defaults `cwd` to `"."` (relative path) via `useAcpSession.ts` line 73: `const cwd = options.cwd || "."`. codex-acp's `new_session` handler validates that `cwd` is an absolute path and rejects relative paths with `"Failed to create session: cwd is not absolute"`, which surfaces as `-32603 Internal error`.
+  - [x] (2026-02-17 00:00JST) Fix: Added `resolve_absolute_cwd()` helper in `commands.rs` that normalizes relative paths to absolute using `std::env::current_dir()`. The helper also strips `.` and `..` components via manual `Path::components()` iteration (avoids `fs::canonicalize` which requires the path to exist). 3 unit tests added (90 Rust tests total).
 
 ## Surprises & Discoveries
 
@@ -68,6 +71,8 @@ Deliverables:
 - (2026-02-16) **codex-acp and claude-code-acp use different JSON field naming conventions in ACP responses, but both use `Vec<McpServer>` (array) for `mcpServers`.** DeepWiki for the codex monorepo incorrectly suggested `mcpServers` should be a `BTreeMap` (object). The actual codex-acp `NewSessionRequest` struct defines `mcp_servers: Vec<McpServer>`. Sending `mcpServers: {}` causes `-32602 Invalid params: expected a sequence`. Always verify against the specific repo (`zed-industries/codex-acp`) rather than the monorepo (`zed-industries/codex`).
 
 - (2026-02-16) **codex-acp supports three authentication methods: `chatgpt` (browser/device OAuth via codex-login), `codex-api-key` (CODEX_API_KEY env var), and `openai-api-key` (OPENAI_API_KEY env var).** These are advertised in the `initialize` response's `authMethods` array. The `chatgpt` method corresponds to `codex login` CLI flow and is the default for Codex subscription users. The `NO_BROWSER` env var disables the `chatgpt` method (for SSH environments).
+
+- (2026-02-16) **codex-acp requires an absolute `cwd` path in `session/new` — relative paths like `"."` are rejected.** The frontend hook `useAcpSession.ts` defaults `cwd` to `"."` when no explicit value is provided. codex-acp's `new_session` handler (in `codex-core`) validates that `cwd` is absolute before creating a conversation. The fix is server-side: `resolve_absolute_cwd()` in `commands.rs` normalizes relative paths using `std::env::current_dir()` before sending to the agent. This is preferable to a frontend fix because (1) it defends against all callers, not just one hook, (2) the Rust backend has direct access to `current_dir()` while the frontend would need to add `@tauri-apps/plugin-os` or similar, and (3) it follows the principle of fixing the bug closest to the protocol boundary. Note: `std::fs::canonicalize` was avoided because it requires the path to exist on disk; instead, manual `Path::components()` iteration strips `.` and `..` without filesystem access.
 
 - (2026-02-16) **Devil's advocate identified that a "Setup Status" page (option b) solves 80% of the UX problem with 5% of the effort.** The devil's advocate analysis calculated that full dynamic download requires 40+ hours of development and ongoing maintenance, while a setup status page with install instructions and a "check" button requires 2-4 hours. For a personal project with developer users, the simpler approach may be sufficient. However, the UX researcher noted that Zed's lazy-download approach (download on first use) provides a significantly better first-run experience. The compromise is a phased approach: start with a setup status page (Phase 21), then add actual downloading (Phase 18-19) behind it.
 
@@ -107,6 +112,10 @@ Deliverables:
 
 - Decision: Include JSON-RPC error `data` field in `check_response` error messages
   Rationale: Agent implementations like codex-acp include detailed error information in the `data` field (e.g., deserialization errors, auth failure reasons). The original `check_response` only included `code` and `message`, hiding useful debugging information. Adding `data` to the formatted error significantly improves debuggability.
+  Date/Author: 2026-02-16
+
+- Decision: Resolve relative `cwd` to absolute path in Rust backend, not in frontend
+  Rationale: codex-acp requires an absolute `cwd` in `session/new`. The fix was placed in `commands.rs` (server-side) rather than in `useAcpSession.ts` (client-side) because: (1) it defends all callers, not just one hook, (2) Rust has direct `std::env::current_dir()` access while the frontend would require additional Tauri plugins, (3) it follows the principle of fixing closest to the protocol boundary. The `resolve_absolute_cwd()` helper normalizes `.` and `..` components via `Path::components()` iteration instead of `fs::canonicalize` (which requires the path to exist).
   Date/Author: 2026-02-16
 
 ## Outcomes & Retrospective
