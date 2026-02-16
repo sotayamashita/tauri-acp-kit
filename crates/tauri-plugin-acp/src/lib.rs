@@ -25,6 +25,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::acp_cancel,
             commands::acp_set_model,
             commands::acp_terminate_agent,
+            commands::acp_check_agent_available,
         ])
         .setup(|app, _api| {
             app.manage(state::PluginState::new());

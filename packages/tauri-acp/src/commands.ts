@@ -24,3 +24,7 @@ export async function cancel(sessionId: string): Promise<void> {
 export async function terminateAgent(agentId: string): Promise<void> {
   return invoke<void>("plugin:acp|acp_terminate_agent", { agentId });
 }
+
+export async function checkAgentAvailable(executable: string): Promise<boolean> {
+  return invoke<boolean>("plugin:acp|acp_check_agent_available", { executable });
+}

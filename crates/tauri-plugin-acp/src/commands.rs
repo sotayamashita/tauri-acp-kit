@@ -366,6 +366,23 @@ pub async fn acp_terminate_agent<R: Runtime>(
     Ok(())
 }
 
+/// Check if an executable is available on the system PATH.
+///
+/// Uses `which` on Unix or `where` on Windows to locate the binary.
+pub(crate) async fn check_executable_on_path(executable: &str) -> bool {
+    let which_cmd = if cfg!(windows) { "where" } else { "which" };
+    let output = tokio::process::Command::new(which_cmd)
+        .arg(executable)
+        .output()
+        .await;
+    output.map(|o| o.status.success()).unwrap_or(false)
+}
+
+#[tauri::command]
+pub async fn acp_check_agent_available(executable: String) -> Result<bool, Error> {
+    Ok(check_executable_on_path(&executable).await)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -611,5 +628,19 @@ mod tests {
         let parsed = parse_session_response(Some(&result));
         // No models at all, defaults to "claude"
         assert_eq!(parsed.model, "claude");
+    }
+
+    #[tokio::test]
+    async fn check_executable_on_path_finds_existing_binary() {
+        // "ls" is available on all Unix systems
+        let result = check_executable_on_path("ls").await;
+        assert!(result);
+    }
+
+    #[tokio::test]
+    async fn check_executable_on_path_returns_false_for_nonexistent() {
+        let result =
+            check_executable_on_path("this-binary-definitely-does-not-exist-xyz123").await;
+        assert!(!result);
     }
 }

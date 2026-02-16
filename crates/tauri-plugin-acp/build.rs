@@ -5,6 +5,7 @@ const COMMANDS: &[&str] = &[
     "acp_cancel",
     "acp_set_model",
     "acp_terminate_agent",
+    "acp_check_agent_available",
 ];
 
 fn main() {
