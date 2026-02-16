@@ -548,7 +548,7 @@ pub async fn acp_check_agent(
     let entry = registry
         .iter()
         .find(|e| e.id == agent_id)
-        .ok_or_else(|| Error::AgentNotFound(agent_id))?;
+        .ok_or(Error::AgentNotFound(agent_id))?;
 
     Ok(manager.check_status(entry))
 }
@@ -567,7 +567,7 @@ pub async fn acp_download_agent<R: Runtime>(
     let entry = registry
         .iter()
         .find(|e| e.id == agent_id)
-        .ok_or_else(|| Error::AgentNotFound(agent_id))?;
+        .ok_or(Error::AgentNotFound(agent_id))?;
 
     let resolved = manager.resolve_executable(&app, entry).await?;
     Ok(resolved)

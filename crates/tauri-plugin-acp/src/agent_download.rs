@@ -6,6 +6,7 @@ use tauri::Emitter;
 /// Status of a managed agent.
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
+#[allow(dead_code)]
 pub enum AgentStatus {
     NotInstalled,
     Downloading {
@@ -23,6 +24,7 @@ pub enum AgentStatus {
 /// Phase of a download operation.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "snake_case")]
+#[allow(dead_code)]
 pub enum DownloadPhase {
     Resolving,
     Downloading,
@@ -105,6 +107,7 @@ impl AgentDownloadManager {
     }
 
     /// Get the base directory for agent storage.
+    #[allow(dead_code)]
     pub fn base_dir(&self) -> &Path {
         &self.base_dir
     }
@@ -485,6 +488,7 @@ pub fn extract_zip(archive_path: &Path, dest_dir: &Path) -> Result<(), DownloadE
 }
 
 /// Verify the SHA-256 hash of a file.
+#[allow(dead_code)]
 pub fn verify_sha256(file_path: &Path, expected_hex: &str) -> std::io::Result<bool> {
     use sha2::{Digest, Sha256};
     let mut file = std::fs::File::open(file_path)?;

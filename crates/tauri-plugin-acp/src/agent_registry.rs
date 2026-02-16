@@ -19,6 +19,7 @@ pub enum AgentDistribution {
 /// How agent versions are resolved.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "snake_case")]
+#[allow(dead_code)]
 pub enum VersionPolicy {
     Latest,
     Pinned(String),
