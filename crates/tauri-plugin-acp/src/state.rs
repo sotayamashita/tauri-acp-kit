@@ -13,6 +13,7 @@ pub struct AcpModelInfo {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct Session {
     pub id: String,
     pub agent_id: String,
