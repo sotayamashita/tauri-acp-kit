@@ -201,6 +201,86 @@ async fn resolve_agent_spec<R: Runtime>(
     }
 }
 
+/// Send the ACP `initialize` request and return the response.
+async fn send_initialize(handle: &crate::process::AgentHandle) -> Result<JsonRpcResponse, Error> {
+    let init_params = serde_json::json!({
+        "protocolVersion": 1,
+        "clientCapabilities": {}
+    });
+
+    let response = handle.send_request("initialize", init_params).await?;
+    check_response(&response, "initialize")?;
+    tracing::debug!("Initialize response: {:?}", response);
+    Ok(response)
+}
+
+/// Authenticate with the agent if it advertises auth methods (e.g., codex-acp).
+///
+/// Agents like claude-code-acp that don't require auth won't include authMethods.
+/// For users with stored credentials (e.g., `codex login`), authenticate loads
+/// them without prompting — the check_auth() guard in session/new requires this step.
+async fn send_authenticate(
+    handle: &crate::process::AgentHandle,
+    init_result: &serde_json::Value,
+) -> Result<(), Error> {
+    let auth_methods = init_result
+        .get("authMethods")
+        .or_else(|| init_result.get("auth_methods"))
+        .and_then(|v| v.as_array());
+
+    let methods = match auth_methods {
+        Some(m) => m,
+        None => return Ok(()),
+    };
+
+    let first_method = match methods.first() {
+        Some(m) => m,
+        None => return Ok(()),
+    };
+
+    let method_id = first_method
+        .get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("chatgpt");
+
+    tracing::info!(method_id = %method_id, "Authenticating with agent");
+
+    let auth_params = serde_json::json!({
+        "methodId": method_id
+    });
+    let auth_response = handle.send_request("authenticate", auth_params).await?;
+    check_response(&auth_response, "authenticate")?;
+    tracing::info!("Authentication successful");
+    Ok(())
+}
+
+/// Send the ACP `session/new` request and return the response.
+async fn send_create_session(
+    handle: &crate::process::AgentHandle,
+    cwd: &str,
+) -> Result<JsonRpcResponse, Error> {
+    let abs_cwd = resolve_absolute_cwd(cwd);
+
+    let session_params = serde_json::json!({
+        "cwd": abs_cwd,
+        "mcpServers": []
+    });
+
+    let response = handle.send_request("session/new", session_params).await?;
+    check_response(&response, "session/new")?;
+
+    if let Some(ref result_val) = response.result {
+        tracing::info!(
+            "session/new result: {}",
+            serde_json::to_string(result_val).unwrap_or_else(|_| "<serialize error>".into())
+        );
+    } else {
+        tracing::warn!("session/new returned no result field");
+    }
+
+    Ok(response)
+}
+
 #[tauri::command]
 pub async fn acp_start_session<R: Runtime>(
     app: AppHandle<R>,
@@ -210,67 +290,12 @@ pub async fn acp_start_session<R: Runtime>(
 ) -> Result<SessionInfoResponse, Error> {
     let handle = state.get_agent_handle(&agent_id).await?;
 
-    // ACP: Send initialize request (verified against claude-code-acp v0.16.0)
-    let init_params = serde_json::json!({
-        "protocolVersion": 1,
-        "clientCapabilities": {}
-    });
-
-    let response = handle.send_request("initialize", init_params).await?;
-    check_response(&response, "initialize")?;
-    tracing::debug!("Initialize response: {:?}", response);
-
-    // ACP: Authenticate if the agent advertises auth methods (e.g., codex-acp).
-    // Agents like claude-code-acp that don't require auth won't include authMethods.
-    // For users with stored credentials (e.g., `codex login`), authenticate loads
-    // them without prompting — the check_auth() guard in session/new requires this step.
-    if let Some(ref init_result) = response.result {
-        let auth_methods = init_result
-            .get("authMethods")
-            .or_else(|| init_result.get("auth_methods"))
-            .and_then(|v| v.as_array());
-
-        if let Some(methods) = auth_methods {
-            if let Some(first_method) = methods.first() {
-                let method_id = first_method
-                    .get("id")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("chatgpt");
-
-                tracing::info!(method_id = %method_id, "Authenticating with agent");
-
-                let auth_params = serde_json::json!({
-                    "methodId": method_id
-                });
-                let auth_response = handle.send_request("authenticate", auth_params).await?;
-                check_response(&auth_response, "authenticate")?;
-                tracing::info!("Authentication successful");
-            }
-        }
+    let response = send_initialize(&handle).await?;
+    if let Some(ref result) = response.result {
+        send_authenticate(&handle, result).await?;
     }
 
-    // ACP: session/new creates a new session
-    // codex-acp requires an absolute cwd path; resolve relative paths here.
-    let abs_cwd = resolve_absolute_cwd(&cwd);
-
-    let session_params = serde_json::json!({
-        "cwd": abs_cwd,
-        "mcpServers": []
-    });
-
-    let session_response = handle.send_request("session/new", session_params).await?;
-    check_response(&session_response, "session/new")?;
-
-    // Log raw response JSON for debugging model parsing issues
-    if let Some(ref result_val) = session_response.result {
-        tracing::info!(
-            "session/new result: {}",
-            serde_json::to_string(result_val).unwrap_or_else(|_| "<serialize error>".into())
-        );
-    } else {
-        tracing::warn!("session/new returned no result field");
-    }
-
+    let session_response = send_create_session(&handle, &cwd).await?;
     let parsed = parse_session_response(session_response.result.as_ref());
 
     tracing::info!(
@@ -383,23 +408,13 @@ pub async fn acp_send_prompt<R: Runtime>(
             Ok(response) => {
                 tracing::debug!(request_id = %request_id_clone, "Prompt response received: {:?}", response);
 
-                // Check if the response contains an error (e.g., invalid params, internal error)
-                if let Some(ref err) = response.error {
-                    let data_str = err
-                        .data
-                        .as_ref()
-                        .map(|d| format!(" data={}", d))
-                        .unwrap_or_default();
-                    let error_msg = format!(
-                        "session/prompt error: code={}, message={}{}",
-                        err.code, err.message, data_str,
-                    );
-                    tracing::error!(request_id = %request_id_clone, "{}", error_msg);
+                if let Err(e) = check_response(&response, "session/prompt") {
+                    tracing::error!(request_id = %request_id_clone, "{}", e);
                     emit_event(
                         &app_clone,
                         AcpEvent::Error {
                             session_id: Some(session_id_clone),
-                            message: error_msg,
+                            message: e.to_string(),
                         },
                     );
                     return;
