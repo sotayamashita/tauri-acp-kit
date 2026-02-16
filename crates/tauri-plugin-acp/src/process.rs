@@ -317,10 +317,11 @@ fn parse_notification(notification: &JsonRpcNotification) -> Option<AcpEvent> {
             let update = notification.params.get("update")?;
             let update_type = update.get("sessionUpdate").and_then(|v| v.as_str())?;
 
+            let content = update.get("content");
+
             match update_type {
                 "agent_message_chunk" => {
-                    let text = update
-                        .get("content")
+                    let text = content
                         .and_then(|c| c.get("text"))
                         .and_then(|v| v.as_str())?;
                     tracing::debug!(
@@ -333,11 +334,85 @@ fn parse_notification(notification: &JsonRpcNotification) -> Option<AcpEvent> {
                         text: text.to_string(),
                     })
                 }
-                _ => {
+                "agent_thought_chunk" => {
+                    let text = content
+                        .and_then(|c| c.get("text"))
+                        .and_then(|v| v.as_str())?;
                     tracing::debug!(
                         session_id = %session_id,
+                        delta_len = text.len(),
+                        "Agent thought delta"
+                    );
+                    Some(AcpEvent::ThoughtDelta {
+                        session_id: session_id.to_string(),
+                        text: text.to_string(),
+                    })
+                }
+                "tool_call" => {
+                    let content_val = content?;
+                    let tool_call_id = content_val.get("toolCallId").and_then(|v| v.as_str())?;
+                    let tool_name = content_val.get("toolName").and_then(|v| v.as_str())?;
+                    let status = content_val
+                        .get("status")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("pending");
+                    tracing::debug!(
+                        session_id = %session_id,
+                        tool_call_id = %tool_call_id,
+                        tool_name = %tool_name,
+                        status = %status,
+                        "Tool call"
+                    );
+                    Some(AcpEvent::ToolCall {
+                        session_id: session_id.to_string(),
+                        tool_call_id: tool_call_id.to_string(),
+                        tool_name: tool_name.to_string(),
+                        status: status.to_string(),
+                        input: content_val.get("input").cloned(),
+                        content: content_val.get("content").cloned(),
+                    })
+                }
+                "tool_call_update" => {
+                    let content_val = content?;
+                    let tool_call_id = content_val.get("toolCallId").and_then(|v| v.as_str())?;
+                    let status = content_val
+                        .get("status")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("completed");
+                    tracing::debug!(
+                        session_id = %session_id,
+                        tool_call_id = %tool_call_id,
+                        status = %status,
+                        "Tool call update"
+                    );
+                    Some(AcpEvent::ToolCallUpdate {
+                        session_id: session_id.to_string(),
+                        tool_call_id: tool_call_id.to_string(),
+                        status: status.to_string(),
+                        content: content_val.get("content").cloned(),
+                    })
+                }
+                "plan" => {
+                    let tasks = content
+                        .and_then(|c| c.get("tasks"))
+                        .cloned()
+                        .unwrap_or(serde_json::Value::Array(vec![]));
+                    tracing::debug!(
+                        session_id = %session_id,
+                        "Plan update"
+                    );
+                    Some(AcpEvent::PlanUpdate {
+                        session_id: session_id.to_string(),
+                        tasks,
+                    })
+                }
+                _ => {
+                    // Step 14.0: Wire protocol discovery — log unhandled types
+                    tracing::info!(
+                        session_id = %session_id,
                         update_type = %update_type,
-                        "Session update"
+                        full_content = %serde_json::to_string(&update).unwrap_or_default(),
+                        "DISCOVERY: unhandled session/update type"
                     );
                     None
                 }
@@ -429,6 +504,277 @@ mod tests {
                 "update": {
                     "sessionUpdate": "agent_message_chunk",
                     "content": { "type": "text" }
+                }
+            }),
+        };
+
+        assert!(parse_notification(&notification).is_none());
+    }
+
+    #[test]
+    fn parse_notification_agent_thought_chunk() {
+        let notification = JsonRpcNotification {
+            jsonrpc: Some("2.0".to_string()),
+            method: "session/update".to_string(),
+            params: serde_json::json!({
+                "sessionId": "sess-1",
+                "update": {
+                    "sessionUpdate": "agent_thought_chunk",
+                    "content": { "type": "text", "text": "Let me think..." }
+                }
+            }),
+        };
+
+        let event = parse_notification(&notification).unwrap();
+        match event {
+            AcpEvent::ThoughtDelta { session_id, text } => {
+                assert_eq!(session_id, "sess-1");
+                assert_eq!(text, "Let me think...");
+            }
+            _ => panic!("Expected ThoughtDelta event"),
+        }
+    }
+
+    #[test]
+    fn parse_notification_agent_thought_chunk_missing_text() {
+        let notification = JsonRpcNotification {
+            jsonrpc: Some("2.0".to_string()),
+            method: "session/update".to_string(),
+            params: serde_json::json!({
+                "sessionId": "sess-1",
+                "update": {
+                    "sessionUpdate": "agent_thought_chunk",
+                    "content": { "type": "text" }
+                }
+            }),
+        };
+
+        assert!(parse_notification(&notification).is_none());
+    }
+
+    #[test]
+    fn parse_notification_tool_call() {
+        let notification = JsonRpcNotification {
+            jsonrpc: Some("2.0".to_string()),
+            method: "session/update".to_string(),
+            params: serde_json::json!({
+                "sessionId": "sess-1",
+                "update": {
+                    "sessionUpdate": "tool_call",
+                    "content": {
+                        "toolCallId": "tc-1",
+                        "toolName": "Read",
+                        "status": "pending",
+                        "input": { "path": "src/App.tsx" }
+                    }
+                }
+            }),
+        };
+
+        let event = parse_notification(&notification).unwrap();
+        match event {
+            AcpEvent::ToolCall {
+                session_id,
+                tool_call_id,
+                tool_name,
+                status,
+                input,
+                content,
+            } => {
+                assert_eq!(session_id, "sess-1");
+                assert_eq!(tool_call_id, "tc-1");
+                assert_eq!(tool_name, "Read");
+                assert_eq!(status, "pending");
+                assert!(input.is_some());
+                assert!(content.is_none());
+            }
+            _ => panic!("Expected ToolCall event"),
+        }
+    }
+
+    #[test]
+    fn parse_notification_tool_call_missing_tool_call_id() {
+        let notification = JsonRpcNotification {
+            jsonrpc: Some("2.0".to_string()),
+            method: "session/update".to_string(),
+            params: serde_json::json!({
+                "sessionId": "sess-1",
+                "update": {
+                    "sessionUpdate": "tool_call",
+                    "content": {
+                        "toolName": "Read",
+                        "status": "pending"
+                    }
+                }
+            }),
+        };
+
+        assert!(parse_notification(&notification).is_none());
+    }
+
+    #[test]
+    fn parse_notification_tool_call_missing_tool_name() {
+        let notification = JsonRpcNotification {
+            jsonrpc: Some("2.0".to_string()),
+            method: "session/update".to_string(),
+            params: serde_json::json!({
+                "sessionId": "sess-1",
+                "update": {
+                    "sessionUpdate": "tool_call",
+                    "content": {
+                        "toolCallId": "tc-1",
+                        "status": "pending"
+                    }
+                }
+            }),
+        };
+
+        assert!(parse_notification(&notification).is_none());
+    }
+
+    #[test]
+    fn parse_notification_tool_call_defaults_status_to_pending() {
+        let notification = JsonRpcNotification {
+            jsonrpc: Some("2.0".to_string()),
+            method: "session/update".to_string(),
+            params: serde_json::json!({
+                "sessionId": "sess-1",
+                "update": {
+                    "sessionUpdate": "tool_call",
+                    "content": {
+                        "toolCallId": "tc-1",
+                        "toolName": "Bash"
+                    }
+                }
+            }),
+        };
+
+        let event = parse_notification(&notification).unwrap();
+        match event {
+            AcpEvent::ToolCall { status, .. } => {
+                assert_eq!(status, "pending");
+            }
+            _ => panic!("Expected ToolCall event"),
+        }
+    }
+
+    #[test]
+    fn parse_notification_tool_call_update() {
+        let notification = JsonRpcNotification {
+            jsonrpc: Some("2.0".to_string()),
+            method: "session/update".to_string(),
+            params: serde_json::json!({
+                "sessionId": "sess-1",
+                "update": {
+                    "sessionUpdate": "tool_call_update",
+                    "content": {
+                        "toolCallId": "tc-1",
+                        "status": "completed",
+                        "content": [{ "type": "text", "text": "file contents" }]
+                    }
+                }
+            }),
+        };
+
+        let event = parse_notification(&notification).unwrap();
+        match event {
+            AcpEvent::ToolCallUpdate {
+                session_id,
+                tool_call_id,
+                status,
+                content,
+            } => {
+                assert_eq!(session_id, "sess-1");
+                assert_eq!(tool_call_id, "tc-1");
+                assert_eq!(status, "completed");
+                assert!(content.is_some());
+            }
+            _ => panic!("Expected ToolCallUpdate event"),
+        }
+    }
+
+    #[test]
+    fn parse_notification_tool_call_update_missing_id() {
+        let notification = JsonRpcNotification {
+            jsonrpc: Some("2.0".to_string()),
+            method: "session/update".to_string(),
+            params: serde_json::json!({
+                "sessionId": "sess-1",
+                "update": {
+                    "sessionUpdate": "tool_call_update",
+                    "content": {
+                        "status": "completed"
+                    }
+                }
+            }),
+        };
+
+        assert!(parse_notification(&notification).is_none());
+    }
+
+    #[test]
+    fn parse_notification_plan() {
+        let notification = JsonRpcNotification {
+            jsonrpc: Some("2.0".to_string()),
+            method: "session/update".to_string(),
+            params: serde_json::json!({
+                "sessionId": "sess-1",
+                "update": {
+                    "sessionUpdate": "plan",
+                    "content": {
+                        "tasks": [
+                            { "id": "t1", "title": "Read file", "status": "completed" },
+                            { "id": "t2", "title": "Write file", "status": "pending" }
+                        ]
+                    }
+                }
+            }),
+        };
+
+        let event = parse_notification(&notification).unwrap();
+        match event {
+            AcpEvent::PlanUpdate { session_id, tasks } => {
+                assert_eq!(session_id, "sess-1");
+                let tasks_arr = tasks.as_array().unwrap();
+                assert_eq!(tasks_arr.len(), 2);
+            }
+            _ => panic!("Expected PlanUpdate event"),
+        }
+    }
+
+    #[test]
+    fn parse_notification_plan_missing_tasks() {
+        let notification = JsonRpcNotification {
+            jsonrpc: Some("2.0".to_string()),
+            method: "session/update".to_string(),
+            params: serde_json::json!({
+                "sessionId": "sess-1",
+                "update": {
+                    "sessionUpdate": "plan",
+                    "content": {}
+                }
+            }),
+        };
+
+        let event = parse_notification(&notification).unwrap();
+        match event {
+            AcpEvent::PlanUpdate { tasks, .. } => {
+                assert!(tasks.as_array().unwrap().is_empty());
+            }
+            _ => panic!("Expected PlanUpdate event"),
+        }
+    }
+
+    #[test]
+    fn parse_notification_unknown_type_returns_none() {
+        let notification = JsonRpcNotification {
+            jsonrpc: Some("2.0".to_string()),
+            method: "session/update".to_string(),
+            params: serde_json::json!({
+                "sessionId": "sess-1",
+                "update": {
+                    "sessionUpdate": "user_message_chunk",
+                    "content": { "text": "echo" }
                 }
             }),
         };

@@ -1,12 +1,64 @@
 import type { AgentSpec, AcpModel } from "tauri-acp";
 import type { ReasoningLevel } from "./providers";
 
+// --- Content Block types ---
+
+export interface TextBlock {
+  type: "text";
+  text: string;
+}
+
+export interface ThinkingBlock {
+  type: "thinking";
+  text: string;
+}
+
+export type ToolCallStatus = "pending" | "running" | "completed" | "failed";
+export type ToolKind = "read" | "write" | "terminal" | "browser" | "unknown";
+
+export interface ToolCallBlock {
+  type: "tool_call";
+  toolCallId: string;
+  title: string;
+  kind: ToolKind;
+  status: ToolCallStatus;
+  input?: string;
+  output?: string;
+}
+
+export interface PlanTask {
+  id: string;
+  title: string;
+  status: "pending" | "in_progress" | "completed";
+}
+
+export interface PlanBlock {
+  type: "plan";
+  tasks: PlanTask[];
+}
+
+export type ContentBlock = TextBlock | ThinkingBlock | ToolCallBlock | PlanBlock;
+
+// --- Message types ---
+
+export type MessageRole = "user" | "assistant";
+
 export interface Message {
   id: string;
-  role: "user" | "assistant";
-  content: string;
+  role: MessageRole;
+  blocks: ContentBlock[];
   createdAt: Date;
 }
+
+/** Extract all text from a message's blocks. */
+export function getMessageText(msg: Message): string {
+  return msg.blocks
+    .filter((b): b is TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("");
+}
+
+// --- Hook types ---
 
 export interface UseAcpChatOptions {
   agentSpec: AgentSpec;

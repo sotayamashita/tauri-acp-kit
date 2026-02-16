@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useAcpChat } from "../hooks/useAcpChat";
+import { useTheme } from "../hooks/useTheme";
 import { ChatMessageList } from "./ChatMessageList";
 import { ChatInput } from "./ChatInput";
 import type { AgentSpec } from "tauri-acp";
 import type { ProviderConfig } from "../providers";
-import { Plus, AlertCircle } from "lucide-react";
+import { Plus, AlertCircle, Sun, Moon, RotateCcw } from "lucide-react";
 import "./AcpChat.css";
 
 interface AcpChatProps {
@@ -36,6 +37,7 @@ export function AcpChat({
     reasoningLevel,
     append,
     stop,
+    reset,
     setModel,
     setReasoningLevel,
   } = useAcpChat({
@@ -44,6 +46,7 @@ export function AcpChat({
     supportsReasoningLevel: selectedProvider?.supportsReasoningLevel,
   });
 
+  const { theme, toggleTheme } = useTheme();
   const [providerOpen, setProviderOpen] = useState(false);
   const providerRef = useRef<HTMLDivElement>(null);
 
@@ -60,22 +63,82 @@ export function AcpChat({
     }
   }, [providerOpen, handleClickOutside]);
 
+  // Cmd+Shift+N (macOS) / Ctrl+Shift+N (other) → new chat
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.shiftKey && (e.metaKey || e.ctrlKey) && e.key === "N") {
+        e.preventDefault();
+        reset();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [reset]);
+
+  // Derive connection status for header display
+  const connectionStatus = error
+    ? "error"
+    : !isReady
+      ? "connecting"
+      : isLoading
+        ? "generating"
+        : "ready";
+
+  const handleSuggestClick = useCallback(
+    (text: string) => {
+      setInput(text);
+    },
+    [setInput],
+  );
+
   return (
-    <div className="acp-chat">
+    <div className="acp-chat" data-theme={theme}>
       {/* Header */}
       <header className="acp-chat-header">
         <div className="acp-chat-header-left">
           <span className="acp-chat-header-title">{selectedProvider?.label || "Chat"}</span>
-          <span className={`acp-chat-status ${isReady ? "ready" : "connecting"}`}>
-            {isReady ? "" : "Connecting..."}
+          <span className={`acp-chat-status ${connectionStatus}`} role="status" aria-live="polite">
+            {connectionStatus === "connecting" ? (
+              "Connecting…"
+            ) : connectionStatus === "generating" ? (
+              "Generating…"
+            ) : connectionStatus === "error" ? (
+              <>
+                <span className="acp-chat-status-dot error" aria-hidden="true" />
+                Disconnected
+              </>
+            ) : (
+              <>
+                <span className="acp-chat-status-dot ready" aria-hidden="true" />
+              </>
+            )}
           </span>
         </div>
         <div className="acp-chat-header-right">
+          <button
+            type="button"
+            onClick={reset}
+            className="acp-chat-header-btn"
+            title="New Chat (Cmd+Shift+N)"
+            aria-label="New Chat"
+            disabled={messages.length === 0}
+          >
+            <RotateCcw size={14} />
+          </button>
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="acp-chat-header-btn"
+            title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+            aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+          >
+            {theme === "light" ? <Moon size={14} /> : <Sun size={14} />}
+          </button>
           <div className="acp-chat-dropdown-wrapper" ref={providerRef}>
             <button
               type="button"
               onClick={() => setProviderOpen(!providerOpen)}
-              className="acp-chat-reset-btn"
+              className="acp-chat-header-btn"
               title="Switch provider"
             >
               <Plus size={16} />
@@ -104,7 +167,14 @@ export function AcpChat({
       </header>
 
       {/* Message Area */}
-      <ChatMessageList messages={messages} isReady={isReady} isLoading={isLoading} />
+      <ChatMessageList
+        messages={messages}
+        isReady={isReady}
+        isLoading={isLoading}
+        providerLabel={selectedProvider?.label}
+        modelId={currentModelId}
+        onSuggestClick={handleSuggestClick}
+      />
 
       {/* Error */}
       {error && (

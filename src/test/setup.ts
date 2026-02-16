@@ -22,6 +22,35 @@ beforeAll(() => {
   // Mock scrollIntoView for jsdom (not implemented)
   Element.prototype.scrollIntoView = vi.fn();
 
+  // Mock matchMedia for jsdom (used by useTheme)
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+
+  // Mock IntersectionObserver for jsdom (used by scroll-to-bottom FAB)
+  globalThis.IntersectionObserver = class MockIntersectionObserver {
+    readonly root: Element | null = null;
+    readonly rootMargin: string = "";
+    readonly thresholds: ReadonlyArray<number> = [0];
+    constructor(_cb: IntersectionObserverCallback, _opts?: IntersectionObserverInit) {}
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+    takeRecords(): IntersectionObserverEntry[] {
+      return [];
+    }
+  } as unknown as typeof IntersectionObserver;
+
   // Mock Tauri event plugin internals for listen/unlisten.
   (window as unknown as Record<string, unknown>).__TAURI_EVENT_PLUGIN_INTERNALS__ = {
     convertFileSrc: (filePath: string) => filePath,
