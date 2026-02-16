@@ -3,6 +3,8 @@ use tauri::{
     Manager, Runtime,
 };
 
+mod agent_download;
+mod agent_registry;
 mod commands;
 mod error;
 mod events;
