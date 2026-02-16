@@ -128,6 +128,11 @@
   color: var(--chat-text);
 }
 
+/* Reset global button defaults (App.css sets box-shadow on all buttons) */
+.acp-chat button {
+  box-shadow: none;
+}
+
 /* ============================================
    Header
    ============================================ */
@@ -337,7 +342,6 @@
   border-radius: 50%;
   color: var(--chat-text-secondary);
   cursor: pointer;
-  box-shadow: var(--chat-shadow);
   transition:
     background 0.15s,
     color 0.15s;
@@ -765,7 +769,6 @@
   background: var(--chat-surface);
   border: 1px solid var(--chat-border);
   border-radius: 8px;
-  box-shadow: var(--chat-shadow);
   z-index: 10;
 }
 
