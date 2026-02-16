@@ -35,6 +35,7 @@ Deliverables:
   - [x] (2026-02-16 15:00JST) Step 18.1: Added Rust dependencies (reqwest, futures-util, flate2, tar, zip, sha2, tempfile)
   - [x] (2026-02-16 15:15JST) Step 18.2: Created `agent_registry.rs` with AgentDistribution, VersionPolicy, AgentRegistryEntry, PlatformInfo, default_registry(), 6 tests
   - [x] (2026-02-16 16:00JST) Step 18.3: Created `agent_download.rs` with AgentDownloadManager, AgentStatus, DownloadPhase, DownloadProgress, ResolvedAgent, DownloadError, helpers (extract_tar_gz, extract_zip, verify_sha256, detect_node, detect_npm), 19 tests (80 total Rust)
+  - [x] (2026-02-16 16:30JST) Steps 18.4-18.9: Extended PluginState (download_manager, registry), added commands (acp_check_agent, acp_download_agent, acp_get_agent_registry), extended error.rs (DownloadManagerNotInitialized), updated lib.rs setup + build.rs + capabilities, 6 new state tests (86 total Rust)
 - [ ] Phase 19: Modified Agent Spawning Flow (Rust)
 - [ ] Phase 20: Frontend Download UX (TypeScript + React)
 

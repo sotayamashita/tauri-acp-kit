@@ -19,6 +19,9 @@ pub enum Error {
 
     #[error("Protocol error: {0}")]
     Protocol(String),
+
+    #[error("Download manager not initialized")]
+    DownloadManagerNotInitialized,
 }
 
 impl serde::Serialize for Error {

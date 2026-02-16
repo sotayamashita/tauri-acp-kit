@@ -1,3 +1,5 @@
+use crate::agent_download::{AgentStatus, ResolvedAgent};
+use crate::agent_registry::AgentRegistryEntry;
 use crate::error::Error;
 use crate::events::{emit_event, AcpEvent};
 use crate::process::AgentProcess;
@@ -381,6 +383,52 @@ pub(crate) async fn check_executable_on_path(executable: &str) -> bool {
 #[tauri::command]
 pub async fn acp_check_agent_available(executable: String) -> Result<bool, Error> {
     Ok(check_executable_on_path(&executable).await)
+}
+
+/// Check if an agent is downloaded/installed in the managed directory.
+#[tauri::command]
+pub async fn acp_check_agent(
+    state: State<'_, PluginState>,
+    agent_id: String,
+) -> Result<AgentStatus, Error> {
+    let guard = state.get_download_manager().await?;
+    let manager = guard.as_ref().unwrap();
+    let registry = state.get_registry().await;
+
+    let entry = registry
+        .iter()
+        .find(|e| e.id == agent_id)
+        .ok_or_else(|| Error::AgentNotFound(agent_id))?;
+
+    Ok(manager.check_status(entry))
+}
+
+/// Download/install an agent binary.
+#[tauri::command]
+pub async fn acp_download_agent<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, PluginState>,
+    agent_id: String,
+) -> Result<ResolvedAgent, Error> {
+    let guard = state.get_download_manager().await?;
+    let manager = guard.as_ref().unwrap();
+    let registry = state.get_registry().await;
+
+    let entry = registry
+        .iter()
+        .find(|e| e.id == agent_id)
+        .ok_or_else(|| Error::AgentNotFound(agent_id))?;
+
+    let resolved = manager.resolve_executable(&app, entry).await?;
+    Ok(resolved)
+}
+
+/// Get the agent registry.
+#[tauri::command]
+pub async fn acp_get_agent_registry(
+    state: State<'_, PluginState>,
+) -> Result<Vec<AgentRegistryEntry>, Error> {
+    Ok(state.get_registry().await)
 }
 
 #[cfg(test)]

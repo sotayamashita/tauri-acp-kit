@@ -12,6 +12,9 @@
     "acp:allow-acp-cancel",
     "acp:allow-acp-set-model",
     "acp:allow-acp-terminate-agent",
-    "acp:allow-acp-check-agent-available"
+    "acp:allow-acp-check-agent-available",
+    "acp:allow-acp-check-agent",
+    "acp:allow-acp-download-agent",
+    "acp:allow-acp-get-agent-registry"
   ]
 }

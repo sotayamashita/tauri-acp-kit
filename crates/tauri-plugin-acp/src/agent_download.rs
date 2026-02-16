@@ -87,6 +87,7 @@ impl From<DownloadError> for crate::error::Error {
 }
 
 /// Manages agent binary downloads and installations.
+#[derive(Debug)]
 pub struct AgentDownloadManager {
     base_dir: PathBuf,
 }
