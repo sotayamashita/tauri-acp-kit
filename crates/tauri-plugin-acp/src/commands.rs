@@ -188,6 +188,35 @@ pub async fn acp_start_session<R: Runtime>(
     check_response(&response, "initialize")?;
     tracing::debug!("Initialize response: {:?}", response);
 
+    // ACP: Authenticate if the agent advertises auth methods (e.g., codex-acp).
+    // Agents like claude-code-acp that don't require auth won't include authMethods.
+    // For users with stored credentials (e.g., `codex login`), authenticate loads
+    // them without prompting — the check_auth() guard in session/new requires this step.
+    if let Some(ref init_result) = response.result {
+        let auth_methods = init_result
+            .get("authMethods")
+            .or_else(|| init_result.get("auth_methods"))
+            .and_then(|v| v.as_array());
+
+        if let Some(methods) = auth_methods {
+            if let Some(first_method) = methods.first() {
+                let method_id = first_method
+                    .get("id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("chatgpt");
+
+                tracing::info!(method_id = %method_id, "Authenticating with agent");
+
+                let auth_params = serde_json::json!({
+                    "methodId": method_id
+                });
+                let auth_response = handle.send_request("authenticate", auth_params).await?;
+                check_response(&auth_response, "authenticate")?;
+                tracing::info!("Authentication successful");
+            }
+        }
+    }
+
     // ACP: session/new creates a new session
     let session_params = serde_json::json!({
         "cwd": cwd,
