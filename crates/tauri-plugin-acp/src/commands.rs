@@ -1,3 +1,5 @@
+use crate::agent_download::{AgentStatus, ResolvedAgent};
+use crate::agent_registry::AgentRegistryEntry;
 use crate::error::Error;
 use crate::events::{emit_event, AcpEvent};
 use crate::process::AgentProcess;
@@ -25,12 +27,49 @@ struct ParsedSession {
 /// Check a JSON-RPC response for errors, returning a descriptive `Error::Protocol` if present.
 fn check_response(response: &JsonRpcResponse, context: &str) -> Result<(), Error> {
     if let Some(ref err) = response.error {
+        let data_str = err
+            .data
+            .as_ref()
+            .map(|d| format!(" data={}", d))
+            .unwrap_or_default();
         return Err(Error::Protocol(format!(
-            "{} failed: code={}, message={}",
-            context, err.code, err.message
+            "{} failed: code={}, message={}{}",
+            context, err.code, err.message, data_str
         )));
     }
     Ok(())
+}
+
+/// Resolve a cwd path to an absolute path.
+///
+/// codex-acp requires an absolute `cwd` in `session/new`. If the given path
+/// is already absolute it is returned as-is; otherwise it is joined with
+/// `std::env::current_dir()`.
+fn resolve_absolute_cwd(cwd: &str) -> String {
+    let p = std::path::Path::new(cwd);
+    if p.is_absolute() {
+        cwd.to_string()
+    } else {
+        std::env::current_dir()
+            .map(|base| {
+                let joined = base.join(p);
+                // Normalize away `.` and `..` components without touching the filesystem.
+                // std::fs::canonicalize is not used because it requires the path to exist.
+                let mut components = Vec::new();
+                for c in joined.components() {
+                    match c {
+                        std::path::Component::CurDir => {}
+                        std::path::Component::ParentDir => {
+                            components.pop();
+                        }
+                        other => components.push(other),
+                    }
+                }
+                let normalized: std::path::PathBuf = components.iter().collect();
+                normalized.to_string_lossy().into_owned()
+            })
+            .unwrap_or_else(|_| cwd.to_string())
+    }
 }
 
 /// Parse session ID, models, and current model from a session/new result.
@@ -83,7 +122,10 @@ pub async fn acp_spawn_agent<R: Runtime>(
     let agent_id = format!("{}-{}", spec.id, uuid::Uuid::new_v4());
     tracing::info!(agent_id = %agent_id, spec_id = %spec.id, "Creating new agent with unique ID");
 
-    let agent = AgentProcess::spawn(app.clone(), spec, agent_id.clone()).await?;
+    // Resolve executable: try download manager first, then fall back to PATH
+    let resolved_spec = resolve_agent_spec(&app, &state, spec).await;
+
+    let agent = AgentProcess::spawn(app.clone(), resolved_spec, agent_id.clone()).await?;
     state.add_agent(agent).await;
 
     emit_event(
@@ -96,6 +138,149 @@ pub async fn acp_spawn_agent<R: Runtime>(
     Ok(agent_id)
 }
 
+/// Resolve an AgentSpec by checking the download manager for a managed binary.
+///
+/// If the executable is an absolute path, use it as-is.
+/// If the agent is in the registry and managed, use the resolved path.
+/// Otherwise, fall back to the original spec (PATH lookup).
+async fn resolve_agent_spec<R: Runtime>(
+    app: &AppHandle<R>,
+    state: &State<'_, PluginState>,
+    spec: AgentSpec,
+) -> AgentSpec {
+    // Absolute paths are used as-is (custom override)
+    if std::path::Path::new(&spec.executable).is_absolute() {
+        return spec;
+    }
+
+    // Try to resolve from download manager
+    let registry = state.get_registry().await;
+    let entry = match registry.iter().find(|e| e.id == spec.id) {
+        Some(e) => e,
+        None => return spec, // Not in registry, use PATH
+    };
+
+    let dm_guard = match state.get_download_manager().await {
+        Ok(guard) => guard,
+        Err(_) => return spec, // No download manager, use PATH
+    };
+
+    let manager = match dm_guard.as_ref() {
+        Some(m) => m,
+        None => return spec,
+    };
+
+    match manager.resolve_executable(app, entry).await {
+        Ok(resolved) => {
+            tracing::info!(
+                spec_id = %spec.id,
+                executable = %resolved.executable,
+                version = %resolved.version,
+                "Resolved agent from download manager"
+            );
+            AgentSpec {
+                executable: resolved.executable,
+                args: if resolved.args.is_empty() {
+                    spec.args
+                } else {
+                    let mut args = resolved.args;
+                    args.extend(spec.args);
+                    args
+                },
+                ..spec
+            }
+        }
+        Err(e) => {
+            tracing::warn!(
+                spec_id = %spec.id,
+                error = %e,
+                "Download manager resolution failed, falling back to PATH"
+            );
+            spec
+        }
+    }
+}
+
+/// Send the ACP `initialize` request and return the response.
+async fn send_initialize(handle: &crate::process::AgentHandle) -> Result<JsonRpcResponse, Error> {
+    let init_params = serde_json::json!({
+        "protocolVersion": 1,
+        "clientCapabilities": {}
+    });
+
+    let response = handle.send_request("initialize", init_params).await?;
+    check_response(&response, "initialize")?;
+    tracing::debug!("Initialize response: {:?}", response);
+    Ok(response)
+}
+
+/// Authenticate with the agent if it advertises auth methods (e.g., codex-acp).
+///
+/// Agents like claude-code-acp that don't require auth won't include authMethods.
+/// For users with stored credentials (e.g., `codex login`), authenticate loads
+/// them without prompting — the check_auth() guard in session/new requires this step.
+async fn send_authenticate(
+    handle: &crate::process::AgentHandle,
+    init_result: &serde_json::Value,
+) -> Result<(), Error> {
+    let auth_methods = init_result
+        .get("authMethods")
+        .or_else(|| init_result.get("auth_methods"))
+        .and_then(|v| v.as_array());
+
+    let methods = match auth_methods {
+        Some(m) => m,
+        None => return Ok(()),
+    };
+
+    let first_method = match methods.first() {
+        Some(m) => m,
+        None => return Ok(()),
+    };
+
+    let method_id = first_method
+        .get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("chatgpt");
+
+    tracing::info!(method_id = %method_id, "Authenticating with agent");
+
+    let auth_params = serde_json::json!({
+        "methodId": method_id
+    });
+    let auth_response = handle.send_request("authenticate", auth_params).await?;
+    check_response(&auth_response, "authenticate")?;
+    tracing::info!("Authentication successful");
+    Ok(())
+}
+
+/// Send the ACP `session/new` request and return the response.
+async fn send_create_session(
+    handle: &crate::process::AgentHandle,
+    cwd: &str,
+) -> Result<JsonRpcResponse, Error> {
+    let abs_cwd = resolve_absolute_cwd(cwd);
+
+    let session_params = serde_json::json!({
+        "cwd": abs_cwd,
+        "mcpServers": []
+    });
+
+    let response = handle.send_request("session/new", session_params).await?;
+    check_response(&response, "session/new")?;
+
+    if let Some(ref result_val) = response.result {
+        tracing::info!(
+            "session/new result: {}",
+            serde_json::to_string(result_val).unwrap_or_else(|_| "<serialize error>".into())
+        );
+    } else {
+        tracing::warn!("session/new returned no result field");
+    }
+
+    Ok(response)
+}
+
 #[tauri::command]
 pub async fn acp_start_session<R: Runtime>(
     app: AppHandle<R>,
@@ -105,35 +290,12 @@ pub async fn acp_start_session<R: Runtime>(
 ) -> Result<SessionInfoResponse, Error> {
     let handle = state.get_agent_handle(&agent_id).await?;
 
-    // ACP: Send initialize request (verified against claude-code-acp v0.16.0)
-    let init_params = serde_json::json!({
-        "protocolVersion": 1,
-        "clientCapabilities": {}
-    });
-
-    let response = handle.send_request("initialize", init_params).await?;
-    check_response(&response, "initialize")?;
-    tracing::debug!("Initialize response: {:?}", response);
-
-    // ACP: session/new creates a new session (mcpServers required)
-    let session_params = serde_json::json!({
-        "cwd": cwd,
-        "mcpServers": []
-    });
-
-    let session_response = handle.send_request("session/new", session_params).await?;
-    check_response(&session_response, "session/new")?;
-
-    // Log raw response JSON for debugging model parsing issues
-    if let Some(ref result_val) = session_response.result {
-        tracing::info!(
-            "session/new result: {}",
-            serde_json::to_string(result_val).unwrap_or_else(|_| "<serialize error>".into())
-        );
-    } else {
-        tracing::warn!("session/new returned no result field");
+    let response = send_initialize(&handle).await?;
+    if let Some(ref result) = response.result {
+        send_authenticate(&handle, result).await?;
     }
 
+    let session_response = send_create_session(&handle, &cwd).await?;
     let parsed = parse_session_response(session_response.result.as_ref());
 
     tracing::info!(
@@ -246,23 +408,13 @@ pub async fn acp_send_prompt<R: Runtime>(
             Ok(response) => {
                 tracing::debug!(request_id = %request_id_clone, "Prompt response received: {:?}", response);
 
-                // Check if the response contains an error (e.g., invalid params, internal error)
-                if let Some(ref err) = response.error {
-                    let data_str = err
-                        .data
-                        .as_ref()
-                        .map(|d| format!(" data={}", d))
-                        .unwrap_or_default();
-                    let error_msg = format!(
-                        "session/prompt error: code={}, message={}{}",
-                        err.code, err.message, data_str,
-                    );
-                    tracing::error!(request_id = %request_id_clone, "{}", error_msg);
+                if let Err(e) = check_response(&response, "session/prompt") {
+                    tracing::error!(request_id = %request_id_clone, "{}", e);
                     emit_event(
                         &app_clone,
                         AcpEvent::Error {
                             session_id: Some(session_id_clone),
-                            message: error_msg,
+                            message: e.to_string(),
                         },
                     );
                     return;
@@ -364,6 +516,69 @@ pub async fn acp_terminate_agent<R: Runtime>(
     );
 
     Ok(())
+}
+
+/// Check if an executable is available on the system PATH.
+///
+/// Uses `which` on Unix or `where` on Windows to locate the binary.
+pub(crate) async fn check_executable_on_path(executable: &str) -> bool {
+    let which_cmd = if cfg!(windows) { "where" } else { "which" };
+    let output = tokio::process::Command::new(which_cmd)
+        .arg(executable)
+        .output()
+        .await;
+    output.map(|o| o.status.success()).unwrap_or(false)
+}
+
+#[tauri::command]
+pub async fn acp_check_agent_available(executable: String) -> Result<bool, Error> {
+    Ok(check_executable_on_path(&executable).await)
+}
+
+/// Check if an agent is downloaded/installed in the managed directory.
+#[tauri::command]
+pub async fn acp_check_agent(
+    state: State<'_, PluginState>,
+    agent_id: String,
+) -> Result<AgentStatus, Error> {
+    let guard = state.get_download_manager().await?;
+    let manager = guard.as_ref().unwrap();
+    let registry = state.get_registry().await;
+
+    let entry = registry
+        .iter()
+        .find(|e| e.id == agent_id)
+        .ok_or(Error::AgentNotFound(agent_id))?;
+
+    Ok(manager.check_status(entry))
+}
+
+/// Download/install an agent binary.
+#[tauri::command]
+pub async fn acp_download_agent<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, PluginState>,
+    agent_id: String,
+) -> Result<ResolvedAgent, Error> {
+    let guard = state.get_download_manager().await?;
+    let manager = guard.as_ref().unwrap();
+    let registry = state.get_registry().await;
+
+    let entry = registry
+        .iter()
+        .find(|e| e.id == agent_id)
+        .ok_or(Error::AgentNotFound(agent_id))?;
+
+    let resolved = manager.resolve_executable(&app, entry).await?;
+    Ok(resolved)
+}
+
+/// Get the agent registry.
+#[tauri::command]
+pub async fn acp_get_agent_registry(
+    state: State<'_, PluginState>,
+) -> Result<Vec<AgentRegistryEntry>, Error> {
+    Ok(state.get_registry().await)
 }
 
 #[cfg(test)]
@@ -542,6 +757,25 @@ mod tests {
     }
 
     #[test]
+    fn check_response_includes_data_field() {
+        let response = JsonRpcResponse {
+            jsonrpc: Some("2.0".to_string()),
+            id: crate::protocol::JsonRpcId::Number(1),
+            result: None,
+            error: Some(crate::protocol::JsonRpcError {
+                code: -32603,
+                message: "Internal error".to_string(),
+                data: Some(serde_json::json!("session init failed")),
+            }),
+        };
+        let err = check_response(&response, "session/new").unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("session/new failed"));
+        assert!(msg.contains("-32603"));
+        assert!(msg.contains("session init failed"));
+    }
+
+    #[test]
     fn parse_session_response_complete_data() {
         let result = serde_json::json!({
             "sessionId": "sess-abc",
@@ -611,5 +845,38 @@ mod tests {
         let parsed = parse_session_response(Some(&result));
         // No models at all, defaults to "claude"
         assert_eq!(parsed.model, "claude");
+    }
+
+    #[tokio::test]
+    async fn check_executable_on_path_finds_existing_binary() {
+        // "ls" is available on all Unix systems
+        let result = check_executable_on_path("ls").await;
+        assert!(result);
+    }
+
+    #[tokio::test]
+    async fn check_executable_on_path_returns_false_for_nonexistent() {
+        let result = check_executable_on_path("this-binary-definitely-does-not-exist-xyz123").await;
+        assert!(!result);
+    }
+
+    #[test]
+    fn resolve_absolute_cwd_returns_absolute_as_is() {
+        let result = resolve_absolute_cwd("/home/user/project");
+        assert_eq!(result, "/home/user/project");
+    }
+
+    #[test]
+    fn resolve_absolute_cwd_resolves_relative_dot() {
+        let result = resolve_absolute_cwd(".");
+        let expected = std::env::current_dir().unwrap();
+        assert_eq!(result, expected.to_string_lossy());
+    }
+
+    #[test]
+    fn resolve_absolute_cwd_resolves_relative_subdir() {
+        let result = resolve_absolute_cwd("src");
+        let expected = std::env::current_dir().unwrap().join("src");
+        assert_eq!(result, expected.to_string_lossy());
     }
 }

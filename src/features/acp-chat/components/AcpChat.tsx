@@ -1,10 +1,14 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useAcpChat } from "../hooks/useAcpChat";
 import { useTheme } from "../hooks/useTheme";
+import { useClickOutside } from "../hooks/useClickOutside";
+import { deriveConnectionStatus } from "../utils/connectionStatus";
 import { ChatMessageList } from "./ChatMessageList";
 import { ChatInput } from "./ChatInput";
 import type { AgentSpec } from "tauri-acp";
 import type { ProviderConfig } from "../providers";
+import { AgentSetupStatus } from "./AgentSetupStatus";
+import { DownloadProgress } from "./DownloadProgress";
 import { Plus, AlertCircle, Sun, Moon, RotateCcw } from "lucide-react";
 import "./AcpChat.css";
 
@@ -32,6 +36,11 @@ export function AcpChat({
     isLoading,
     error,
     isReady,
+    spawnFailed,
+    retry,
+    downloadProgress,
+    isDownloading,
+    download,
     availableModels,
     currentModelId,
     reasoningLevel,
@@ -49,19 +58,8 @@ export function AcpChat({
   const { theme, toggleTheme } = useTheme();
   const [providerOpen, setProviderOpen] = useState(false);
   const providerRef = useRef<HTMLDivElement>(null);
-
-  const handleClickOutside = useCallback((e: MouseEvent) => {
-    if (providerRef.current && !providerRef.current.contains(e.target as Node)) {
-      setProviderOpen(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (providerOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [providerOpen, handleClickOutside]);
+  const closeProviderDropdown = useCallback(() => setProviderOpen(false), []);
+  useClickOutside(providerRef, closeProviderDropdown, providerOpen);
 
   // Cmd+Shift+N (macOS) / Ctrl+Shift+N (other) → new chat
   useEffect(() => {
@@ -75,14 +73,13 @@ export function AcpChat({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [reset]);
 
-  // Derive connection status for header display
-  const connectionStatus = error
-    ? "error"
-    : !isReady
-      ? "connecting"
-      : isLoading
-        ? "generating"
-        : "ready";
+  const connectionStatus = deriveConnectionStatus({
+    error,
+    spawnFailed,
+    isDownloading,
+    isReady,
+    isLoading,
+  });
 
   const handleSuggestClick = useCallback(
     (text: string) => {
@@ -98,7 +95,9 @@ export function AcpChat({
         <div className="acp-chat-header-left">
           <span className="acp-chat-header-title">{selectedProvider?.label || "Chat"}</span>
           <span className={`acp-chat-status ${connectionStatus}`} role="status" aria-live="polite">
-            {connectionStatus === "connecting" ? (
+            {connectionStatus === "downloading" ? (
+              "Downloading…"
+            ) : connectionStatus === "connecting" ? (
               "Connecting…"
             ) : connectionStatus === "generating" ? (
               "Generating…"
@@ -166,15 +165,37 @@ export function AcpChat({
         </div>
       </header>
 
+      {/* Download Progress */}
+      {isDownloading && downloadProgress && (
+        <DownloadProgress
+          progress={downloadProgress}
+          label={selectedProvider?.label || agentSpec.id}
+        />
+      )}
+
+      {/* Setup Status (when agent binary is missing) */}
+      {spawnFailed && !isDownloading && (
+        <AgentSetupStatus
+          agentId={agentSpec.id}
+          label={selectedProvider?.label || agentSpec.id}
+          executable={agentSpec.executable}
+          onCheckAgain={retry}
+          onDownload={download}
+          isDownloading={isDownloading}
+        />
+      )}
+
       {/* Message Area */}
-      <ChatMessageList
-        messages={messages}
-        isReady={isReady}
-        isLoading={isLoading}
-        providerLabel={selectedProvider?.label}
-        modelId={currentModelId}
-        onSuggestClick={handleSuggestClick}
-      />
+      {!spawnFailed && !isDownloading && (
+        <ChatMessageList
+          messages={messages}
+          isReady={isReady}
+          isLoading={isLoading}
+          providerLabel={selectedProvider?.label}
+          modelId={currentModelId}
+          onSuggestClick={handleSuggestClick}
+        />
+      )}
 
       {/* Error */}
       {error && (

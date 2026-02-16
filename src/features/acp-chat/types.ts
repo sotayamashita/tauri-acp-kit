@@ -1,4 +1,4 @@
-import type { AgentSpec, AcpModel } from "tauri-acp";
+import type { AgentSpec, AcpModel, DownloadProgress } from "tauri-acp";
 import type { ReasoningLevel } from "./providers";
 
 // --- Content Block types ---
@@ -74,9 +74,14 @@ export interface UseAcpChatReturn {
   isLoading: boolean;
   error: Error | null;
   isReady: boolean;
+  spawnFailed: boolean;
+  retry: () => void;
   availableModels: AcpModel[];
   currentModelId: string | null;
   reasoningLevel: ReasoningLevel | null;
+  downloadProgress: DownloadProgress | null;
+  isDownloading: boolean;
+  download: () => Promise<void>;
   append: (content: string) => Promise<void>;
   stop: () => Promise<void>;
   reset: () => void;

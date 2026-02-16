@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useCallback } from "react";
+import { useClickOutside } from "../hooks/useClickOutside";
 import { ChevronDown } from "lucide-react";
 
 interface DropdownSelectProps<T> {
@@ -25,18 +26,8 @@ export function DropdownSelect<T>({
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  const handleClickOutside = useCallback((e: MouseEvent) => {
-    if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-      setOpen(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (open) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [open, handleClickOutside]);
+  const closeDropdown = useCallback(() => setOpen(false), []);
+  useClickOutside(wrapperRef, closeDropdown, open);
 
   return (
     <div className={`acp-chat-dropdown-wrapper ${className ?? ""}`} ref={wrapperRef}>

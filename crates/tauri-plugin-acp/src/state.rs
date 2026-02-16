@@ -1,6 +1,9 @@
+use crate::agent_download::AgentDownloadManager;
+use crate::agent_registry::AgentRegistryEntry;
 use crate::error::Error;
 use crate::process::{AgentHandle, AgentProcess};
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -26,6 +29,8 @@ pub struct Session {
 pub struct PluginState {
     agents: Arc<RwLock<HashMap<String, AgentProcess>>>,
     sessions: Arc<RwLock<HashMap<String, Session>>>,
+    download_manager: Arc<RwLock<Option<AgentDownloadManager>>>,
+    registry: Arc<RwLock<Vec<AgentRegistryEntry>>>,
 }
 
 impl Default for PluginState {
@@ -39,7 +44,42 @@ impl PluginState {
         Self {
             agents: Arc::new(RwLock::new(HashMap::new())),
             sessions: Arc::new(RwLock::new(HashMap::new())),
+            download_manager: Arc::new(RwLock::new(None)),
+            registry: Arc::new(RwLock::new(Vec::new())),
         }
+    }
+
+    /// Initialize the download manager with the app data directory.
+    pub fn init_download_manager(&self, app_data_dir: PathBuf) -> std::io::Result<()> {
+        let manager = AgentDownloadManager::new(app_data_dir)?;
+        // Use try_write to avoid blocking in sync context
+        if let Ok(mut guard) = self.download_manager.try_write() {
+            *guard = Some(manager);
+        }
+        Ok(())
+    }
+
+    /// Initialize the agent registry with defaults.
+    pub fn init_registry(&self) {
+        if let Ok(mut guard) = self.registry.try_write() {
+            *guard = crate::agent_registry::default_registry();
+        }
+    }
+
+    /// Get a read lock on the download manager.
+    pub async fn get_download_manager(
+        &self,
+    ) -> Result<tokio::sync::RwLockReadGuard<'_, Option<AgentDownloadManager>>, Error> {
+        let guard = self.download_manager.read().await;
+        if guard.is_none() {
+            return Err(Error::DownloadManagerNotInitialized);
+        }
+        Ok(guard)
+    }
+
+    /// Get the agent registry.
+    pub async fn get_registry(&self) -> Vec<AgentRegistryEntry> {
+        self.registry.read().await.clone()
     }
 
     pub async fn add_agent(&self, agent: AgentProcess) {
@@ -174,5 +214,59 @@ mod tests {
     async fn remove_session_returns_none_for_missing() {
         let state = PluginState::new();
         assert!(state.remove_session("nonexistent").await.is_none());
+    }
+
+    #[tokio::test]
+    async fn get_download_manager_fails_when_not_initialized() {
+        let state = PluginState::new();
+        let err = state.get_download_manager().await.unwrap_err();
+        assert!(err.to_string().contains("not initialized"));
+    }
+
+    #[test]
+    fn init_download_manager_creates_agents_dir() {
+        let temp = tempfile::tempdir().unwrap();
+        let state = PluginState::new();
+        state
+            .init_download_manager(temp.path().to_path_buf())
+            .unwrap();
+        assert!(temp.path().join("agents").exists());
+    }
+
+    #[tokio::test]
+    async fn get_download_manager_succeeds_after_init() {
+        let temp = tempfile::tempdir().unwrap();
+        let state = PluginState::new();
+        state
+            .init_download_manager(temp.path().to_path_buf())
+            .unwrap();
+        let guard = state.get_download_manager().await.unwrap();
+        assert!(guard.is_some());
+    }
+
+    #[test]
+    fn init_registry_populates_defaults() {
+        let state = PluginState::new();
+        state.init_registry();
+        // Use try_read to verify synchronously
+        let guard = state.registry.try_read().unwrap();
+        assert_eq!(guard.len(), 2);
+        assert_eq!(guard[0].id, "codex-acp");
+        assert_eq!(guard[1].id, "claude-code-acp");
+    }
+
+    #[tokio::test]
+    async fn get_registry_returns_entries_after_init() {
+        let state = PluginState::new();
+        state.init_registry();
+        let registry = state.get_registry().await;
+        assert_eq!(registry.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn get_registry_returns_empty_before_init() {
+        let state = PluginState::new();
+        let registry = state.get_registry().await;
+        assert!(registry.is_empty());
     }
 }

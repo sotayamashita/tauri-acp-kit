@@ -256,26 +256,13 @@ impl AgentProcess {
     }
 
     async fn stderr_task(stderr: ChildStderr, agent_id: String) {
-        let mut reader = BufReader::new(stderr);
-        let mut line = String::new();
+        let reader = BufReader::new(stderr);
+        let mut lines = reader.lines();
 
-        loop {
-            line.clear();
-            match reader.read_line(&mut line).await {
-                Ok(0) => {
-                    tracing::debug!(agent_id = %agent_id, "Agent stderr closed");
-                    break;
-                }
-                Ok(_) => {
-                    let trimmed = line.trim();
-                    if !trimmed.is_empty() {
-                        tracing::warn!(agent_id = %agent_id, "Agent stderr: {}", trimmed);
-                    }
-                }
-                Err(e) => {
-                    tracing::error!(agent_id = %agent_id, "Error reading stderr: {}", e);
-                    break;
-                }
+        while let Ok(Some(line)) = lines.next_line().await {
+            let trimmed = line.trim();
+            if !trimmed.is_empty() {
+                tracing::warn!(agent_id = %agent_id, "Agent stderr: {}", trimmed);
             }
         }
     }
@@ -303,122 +290,117 @@ impl AgentProcess {
     }
 }
 
+/// Extract sessionId from notification params.
+fn get_session_id(params: &serde_json::Value) -> Option<String> {
+    params
+        .get("sessionId")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+}
+
+/// Extract content.text from an update object.
+fn get_text_content(update: &serde_json::Value) -> Option<String> {
+    update
+        .get("content")
+        .and_then(|c| c.get("text"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+}
+
+fn parse_message_chunk(session_id: String, update: &serde_json::Value) -> Option<AcpEvent> {
+    let text = get_text_content(update)?;
+    tracing::debug!(session_id = %session_id, delta_len = text.len(), "Agent message delta");
+    Some(AcpEvent::Delta { session_id, text })
+}
+
+fn parse_thought_chunk(session_id: String, update: &serde_json::Value) -> Option<AcpEvent> {
+    let text = get_text_content(update)?;
+    tracing::debug!(session_id = %session_id, delta_len = text.len(), "Agent thought delta");
+    Some(AcpEvent::ThoughtDelta { session_id, text })
+}
+
+fn parse_tool_call(session_id: String, update: &serde_json::Value) -> Option<AcpEvent> {
+    let content_val = update.get("content")?;
+    let tool_call_id = content_val.get("toolCallId").and_then(|v| v.as_str())?;
+    let tool_name = content_val.get("toolName").and_then(|v| v.as_str())?;
+    let status = content_val
+        .get("status")
+        .and_then(|v| v.as_str())
+        .unwrap_or("pending");
+    tracing::debug!(
+        session_id = %session_id,
+        tool_call_id = %tool_call_id,
+        tool_name = %tool_name,
+        status = %status,
+        "Tool call"
+    );
+    Some(AcpEvent::ToolCall {
+        session_id,
+        tool_call_id: tool_call_id.to_string(),
+        tool_name: tool_name.to_string(),
+        status: status.to_string(),
+        input: content_val.get("input").cloned(),
+        content: content_val.get("content").cloned(),
+    })
+}
+
+fn parse_tool_call_update(session_id: String, update: &serde_json::Value) -> Option<AcpEvent> {
+    let content_val = update.get("content")?;
+    let tool_call_id = content_val.get("toolCallId").and_then(|v| v.as_str())?;
+    let status = content_val
+        .get("status")
+        .and_then(|v| v.as_str())
+        .unwrap_or("completed");
+    tracing::debug!(
+        session_id = %session_id,
+        tool_call_id = %tool_call_id,
+        status = %status,
+        "Tool call update"
+    );
+    Some(AcpEvent::ToolCallUpdate {
+        session_id,
+        tool_call_id: tool_call_id.to_string(),
+        status: status.to_string(),
+        content: content_val.get("content").cloned(),
+    })
+}
+
+fn parse_plan(session_id: String, update: &serde_json::Value) -> Option<AcpEvent> {
+    let tasks = update
+        .get("content")
+        .and_then(|c| c.get("tasks"))
+        .cloned()
+        .unwrap_or(serde_json::Value::Array(vec![]));
+    tracing::debug!(session_id = %session_id, "Plan update");
+    Some(AcpEvent::PlanUpdate { session_id, tasks })
+}
+
 /// Parse an ACP notification into an event, if recognized.
 /// Separated from `handle_notification` for testability without Tauri AppHandle.
 fn parse_notification(notification: &JsonRpcNotification) -> Option<AcpEvent> {
-    match notification.method.as_str() {
-        // ACP: streaming text delta from agent message
-        // session/update with sessionUpdate containing agent_message_chunk
-        "session/update" => {
-            let session_id = notification
-                .params
-                .get("sessionId")
-                .and_then(|v| v.as_str())?;
-            let update = notification.params.get("update")?;
-            let update_type = update.get("sessionUpdate").and_then(|v| v.as_str())?;
+    if notification.method != "session/update" {
+        return None;
+    }
 
-            let content = update.get("content");
+    let session_id = get_session_id(&notification.params)?;
+    let update = notification.params.get("update")?;
+    let update_type = update.get("sessionUpdate").and_then(|v| v.as_str())?;
 
-            match update_type {
-                "agent_message_chunk" => {
-                    let text = content
-                        .and_then(|c| c.get("text"))
-                        .and_then(|v| v.as_str())?;
-                    tracing::debug!(
-                        session_id = %session_id,
-                        delta_len = text.len(),
-                        "Agent message delta"
-                    );
-                    Some(AcpEvent::Delta {
-                        session_id: session_id.to_string(),
-                        text: text.to_string(),
-                    })
-                }
-                "agent_thought_chunk" => {
-                    let text = content
-                        .and_then(|c| c.get("text"))
-                        .and_then(|v| v.as_str())?;
-                    tracing::debug!(
-                        session_id = %session_id,
-                        delta_len = text.len(),
-                        "Agent thought delta"
-                    );
-                    Some(AcpEvent::ThoughtDelta {
-                        session_id: session_id.to_string(),
-                        text: text.to_string(),
-                    })
-                }
-                "tool_call" => {
-                    let content_val = content?;
-                    let tool_call_id = content_val.get("toolCallId").and_then(|v| v.as_str())?;
-                    let tool_name = content_val.get("toolName").and_then(|v| v.as_str())?;
-                    let status = content_val
-                        .get("status")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("pending");
-                    tracing::debug!(
-                        session_id = %session_id,
-                        tool_call_id = %tool_call_id,
-                        tool_name = %tool_name,
-                        status = %status,
-                        "Tool call"
-                    );
-                    Some(AcpEvent::ToolCall {
-                        session_id: session_id.to_string(),
-                        tool_call_id: tool_call_id.to_string(),
-                        tool_name: tool_name.to_string(),
-                        status: status.to_string(),
-                        input: content_val.get("input").cloned(),
-                        content: content_val.get("content").cloned(),
-                    })
-                }
-                "tool_call_update" => {
-                    let content_val = content?;
-                    let tool_call_id = content_val.get("toolCallId").and_then(|v| v.as_str())?;
-                    let status = content_val
-                        .get("status")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("completed");
-                    tracing::debug!(
-                        session_id = %session_id,
-                        tool_call_id = %tool_call_id,
-                        status = %status,
-                        "Tool call update"
-                    );
-                    Some(AcpEvent::ToolCallUpdate {
-                        session_id: session_id.to_string(),
-                        tool_call_id: tool_call_id.to_string(),
-                        status: status.to_string(),
-                        content: content_val.get("content").cloned(),
-                    })
-                }
-                "plan" => {
-                    let tasks = content
-                        .and_then(|c| c.get("tasks"))
-                        .cloned()
-                        .unwrap_or(serde_json::Value::Array(vec![]));
-                    tracing::debug!(
-                        session_id = %session_id,
-                        "Plan update"
-                    );
-                    Some(AcpEvent::PlanUpdate {
-                        session_id: session_id.to_string(),
-                        tasks,
-                    })
-                }
-                _ => {
-                    // Step 14.0: Wire protocol discovery — log unhandled types
-                    tracing::info!(
-                        session_id = %session_id,
-                        update_type = %update_type,
-                        full_content = %serde_json::to_string(&update).unwrap_or_default(),
-                        "DISCOVERY: unhandled session/update type"
-                    );
-                    None
-                }
-            }
+    match update_type {
+        "agent_message_chunk" => parse_message_chunk(session_id, update),
+        "agent_thought_chunk" => parse_thought_chunk(session_id, update),
+        "tool_call" => parse_tool_call(session_id, update),
+        "tool_call_update" => parse_tool_call_update(session_id, update),
+        "plan" => parse_plan(session_id, update),
+        _ => {
+            tracing::info!(
+                session_id = %session_id,
+                update_type = %update_type,
+                full_content = %serde_json::to_string(&update).unwrap_or_default(),
+                "DISCOVERY: unhandled session/update type"
+            );
+            None
         }
-        _ => None,
     }
 }
 
