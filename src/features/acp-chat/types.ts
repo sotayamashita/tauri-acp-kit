@@ -74,6 +74,8 @@ export interface UseAcpChatReturn {
   isLoading: boolean;
   error: Error | null;
   isReady: boolean;
+  spawnFailed: boolean;
+  retry: () => void;
   availableModels: AcpModel[];
   currentModelId: string | null;
   reasoningLevel: ReasoningLevel | null;

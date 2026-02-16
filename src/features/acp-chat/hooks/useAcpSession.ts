@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { AcpAgent, AcpSession } from "tauri-acp";
 import type { AcpModel } from "tauri-acp";
 import type { ContentBlock, Message } from "../types";
@@ -16,6 +16,8 @@ export interface UseAcpSessionReturn {
   availableModels: AcpModel[];
   currentModelId: string | null;
   error: Error | null;
+  spawnFailed: boolean;
+  retry: () => void;
   setError: React.Dispatch<React.SetStateAction<Error | null>>;
   setCurrentModelId: React.Dispatch<React.SetStateAction<string | null>>;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
@@ -32,12 +34,21 @@ export function useAcpSession(
   const [availableModels, setAvailableModels] = useState<AcpModel[]>([]);
   const [currentModelId, setCurrentModelId] = useState<string | null>(null);
   const [error, setError] = useState<Error | null>(null);
+  const [spawnFailed, setSpawnFailed] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   const agentRef = useRef<AcpAgent | null>(null);
   const sessionRef = useRef<AcpSession | null>(null);
   const streamingContentRef = useRef("");
   const streamingThoughtRef = useRef("");
   const unlistenersRef = useRef<Array<() => void>>([]);
+
+  const retry = useCallback(() => {
+    setSpawnFailed(false);
+    setError(null);
+    setIsReady(false);
+    setRetryCount((c) => c + 1);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -192,10 +203,12 @@ export function useAcpSession(
       } catch (err) {
         if (mounted) {
           const raw = err as Error;
-          const friendly = new Error(
-            formatAcpError(raw.message ?? String(err), options.agentSpec.executable),
-          );
+          const rawMsg = raw.message ?? String(err);
+          const friendly = new Error(formatAcpError(rawMsg, options.agentSpec.executable));
           setError(friendly);
+          if (rawMsg.includes("No such file or directory") || rawMsg.includes("not found")) {
+            setSpawnFailed(true);
+          }
           options.onError?.(friendly);
         }
       }
@@ -217,7 +230,7 @@ export function useAcpSession(
         sessionRef.current = null;
       }
     };
-  }, [options.agentSpec.id, options.agentSpec.executable, options.cwd]);
+  }, [options.agentSpec.id, options.agentSpec.executable, options.cwd, retryCount]);
 
   return {
     session: sessionRef.current,
@@ -225,6 +238,8 @@ export function useAcpSession(
     availableModels,
     currentModelId,
     error,
+    spawnFailed,
+    retry,
     setError,
     setCurrentModelId,
     setMessages,

@@ -28,10 +28,15 @@ Deliverables:
   - Codebase exploration: current AgentSpec, process.rs spawn flow, providers.ts
   - ACP Registry JSON fetched and analyzed (16 agents registered)
   - Agent team: UX researcher, architect, devil's advocate — all reports received
+- [ ] Phase 21: Setup Status Page + Error States (React)
+  - [x] (2026-02-16 14:00JST) Step 21.1 + 21.2: Added `acp_check_agent_available` Rust command, TS SDK `checkAgentAvailable`, build.rs + capabilities + tests
+  - [ ] Step 21.3: Create `AgentSetupStatus` component
+  - [ ] Step 21.4: Integrate into `useAcpSession`
+  - [ ] Step 21.5: Add CSS for setup status
+  - [ ] Step 21.6: Tests
 - [ ] Phase 18: Agent Registry + Download Manager (Rust)
 - [ ] Phase 19: Modified Agent Spawning Flow (Rust)
 - [ ] Phase 20: Frontend Download UX (TypeScript + React)
-- [ ] Phase 21: Setup Status Page + Error States (React)
 
 ## Surprises & Discoveries
 

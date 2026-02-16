@@ -5,6 +5,7 @@ import { ChatMessageList } from "./ChatMessageList";
 import { ChatInput } from "./ChatInput";
 import type { AgentSpec } from "tauri-acp";
 import type { ProviderConfig } from "../providers";
+import { AgentSetupStatus } from "./AgentSetupStatus";
 import { Plus, AlertCircle, Sun, Moon, RotateCcw } from "lucide-react";
 import "./AcpChat.css";
 
@@ -32,6 +33,8 @@ export function AcpChat({
     isLoading,
     error,
     isReady,
+    spawnFailed,
+    retry,
     availableModels,
     currentModelId,
     reasoningLevel,
@@ -166,15 +169,27 @@ export function AcpChat({
         </div>
       </header>
 
+      {/* Setup Status (when agent binary is missing) */}
+      {spawnFailed && (
+        <AgentSetupStatus
+          agentId={agentSpec.id}
+          label={selectedProvider?.label || agentSpec.id}
+          executable={agentSpec.executable}
+          onCheckAgain={retry}
+        />
+      )}
+
       {/* Message Area */}
-      <ChatMessageList
-        messages={messages}
-        isReady={isReady}
-        isLoading={isLoading}
-        providerLabel={selectedProvider?.label}
-        modelId={currentModelId}
-        onSuggestClick={handleSuggestClick}
-      />
+      {!spawnFailed && (
+        <ChatMessageList
+          messages={messages}
+          isReady={isReady}
+          isLoading={isLoading}
+          providerLabel={selectedProvider?.label}
+          modelId={currentModelId}
+          onSuggestClick={handleSuggestClick}
+        />
+      )}
 
       {/* Error */}
       {error && (

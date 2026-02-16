@@ -1032,3 +1032,94 @@
 .acp-chat-messages::-webkit-scrollbar-thumb:hover {
   background: var(--chat-scrollbar-hover);
 }
+
+/* --- Agent Setup Status --- */
+
+.agent-setup-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 2rem;
+  text-align: center;
+  gap: 1rem;
+}
+
+.agent-setup-status-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--chat-text);
+  margin: 0;
+}
+
+.agent-setup-status-description {
+  font-size: 0.875rem;
+  color: var(--chat-text-secondary);
+  margin: 0;
+  max-width: 480px;
+  line-height: 1.5;
+}
+
+.agent-setup-status-command {
+  background: var(--chat-code-bg);
+  border: 1px solid var(--chat-border);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  font-size: 0.8125rem;
+  font-family: var(--chat-font-mono);
+  color: var(--chat-text);
+  max-width: 480px;
+  width: 100%;
+  overflow-x: auto;
+  text-align: left;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.agent-setup-status-command code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+
+.agent-setup-status-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.agent-setup-status-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+  border: 1px solid var(--chat-border);
+}
+
+.agent-setup-status-btn-secondary {
+  background: var(--chat-surface);
+  color: var(--chat-text);
+}
+
+.agent-setup-status-btn-secondary:hover {
+  background: var(--chat-hover);
+}
+
+.agent-setup-status-btn-primary {
+  background: var(--chat-accent);
+  color: white;
+  border-color: var(--chat-accent);
+}
+
+.agent-setup-status-btn-primary:hover {
+  opacity: 0.9;
+}

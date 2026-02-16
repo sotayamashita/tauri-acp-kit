@@ -89,6 +89,78 @@ describe("useAcpSession", () => {
     expect(onError.mock.calls[0][0].message).toContain("permission");
   });
 
+  it("sets spawnFailed to true when spawn fails with 'not found' error", async () => {
+    cleanupTauriMocks();
+    setupTauriMocks({
+      "plugin:acp|acp_spawn_agent": () => {
+        throw new Error("No such file or directory");
+      },
+      "plugin:acp|acp_terminate_agent": () => undefined,
+    });
+
+    const setMessages = vi.fn();
+    const setIsLoading = vi.fn();
+    const { result } = renderHook(() =>
+      useAcpSession({ agentSpec: testAgentSpec }, setMessages, setIsLoading),
+    );
+
+    await waitFor(() => {
+      expect(result.current.spawnFailed).toBe(true);
+    });
+  });
+
+  it("spawnFailed is false when session initializes successfully", async () => {
+    const setMessages = vi.fn();
+    const setIsLoading = vi.fn();
+    const { result } = renderHook(() =>
+      useAcpSession({ agentSpec: testAgentSpec }, setMessages, setIsLoading),
+    );
+
+    await waitFor(() => {
+      expect(result.current.isReady).toBe(true);
+    });
+
+    expect(result.current.spawnFailed).toBe(false);
+  });
+
+  it("retry resets spawnFailed and re-initializes", async () => {
+    let callCount = 0;
+    cleanupTauriMocks();
+    setupTauriMocks({
+      "plugin:acp|acp_spawn_agent": () => {
+        callCount++;
+        if (callCount === 1) throw new Error("No such file or directory");
+        return "test-agent-id";
+      },
+      "plugin:acp|acp_start_session": () => ({
+        sessionId: "test-session-id",
+        models: mockModels,
+        currentModelId: "claude-sonnet-4",
+      }),
+      "plugin:acp|acp_terminate_agent": () => undefined,
+    });
+
+    const setMessages = vi.fn();
+    const setIsLoading = vi.fn();
+    const { result } = renderHook(() =>
+      useAcpSession({ agentSpec: testAgentSpec }, setMessages, setIsLoading),
+    );
+
+    // First attempt fails
+    await waitFor(() => {
+      expect(result.current.spawnFailed).toBe(true);
+    });
+
+    // Retry
+    result.current.retry();
+
+    // Should succeed on second attempt
+    await waitFor(() => {
+      expect(result.current.isReady).toBe(true);
+    });
+    expect(result.current.spawnFailed).toBe(false);
+  });
+
   it("terminates agent on unmount", async () => {
     const terminateCalls: unknown[] = [];
     cleanupTauriMocks();
