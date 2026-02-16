@@ -14,7 +14,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  lint-and-test:
+  frontend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,7 +44,7 @@ jobs:
       - name: Test
         run: pnpm test:run
 
-  rust-check:
+  backend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
