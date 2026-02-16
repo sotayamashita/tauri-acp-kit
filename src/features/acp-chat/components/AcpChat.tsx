@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useAcpChat } from "../hooks/useAcpChat";
 import { useTheme } from "../hooks/useTheme";
+import { useClickOutside } from "../hooks/useClickOutside";
+import { deriveConnectionStatus } from "../utils/connectionStatus";
 import { ChatMessageList } from "./ChatMessageList";
 import { ChatInput } from "./ChatInput";
 import type { AgentSpec } from "tauri-acp";
@@ -56,19 +58,8 @@ export function AcpChat({
   const { theme, toggleTheme } = useTheme();
   const [providerOpen, setProviderOpen] = useState(false);
   const providerRef = useRef<HTMLDivElement>(null);
-
-  const handleClickOutside = useCallback((e: MouseEvent) => {
-    if (providerRef.current && !providerRef.current.contains(e.target as Node)) {
-      setProviderOpen(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (providerOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [providerOpen, handleClickOutside]);
+  const closeProviderDropdown = useCallback(() => setProviderOpen(false), []);
+  useClickOutside(providerRef, closeProviderDropdown, providerOpen);
 
   // Cmd+Shift+N (macOS) / Ctrl+Shift+N (other) → new chat
   useEffect(() => {
@@ -82,19 +73,13 @@ export function AcpChat({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [reset]);
 
-  // Derive connection status for header display
-  const connectionStatus =
-    error && !spawnFailed
-      ? "error"
-      : isDownloading
-        ? "downloading"
-        : !isReady && !spawnFailed
-          ? "connecting"
-          : isLoading
-            ? "generating"
-            : spawnFailed
-              ? "error"
-              : "ready";
+  const connectionStatus = deriveConnectionStatus({
+    error,
+    spawnFailed,
+    isDownloading,
+    isReady,
+    isLoading,
+  });
 
   const handleSuggestClick = useCallback(
     (text: string) => {

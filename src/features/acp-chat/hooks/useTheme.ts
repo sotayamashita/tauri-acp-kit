@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { safeGetItem, safeSetItem } from "../utils/storage";
 
 type Theme = "light" | "dark";
 
@@ -9,7 +10,7 @@ function getSystemTheme(): Theme {
 }
 
 function getStoredTheme(): Theme | null {
-  const stored = localStorage.getItem(STORAGE_KEY);
+  const stored = safeGetItem(STORAGE_KEY);
   return stored === "light" || stored === "dark" ? stored : null;
 }
 
@@ -19,7 +20,7 @@ export function useTheme() {
   const toggleTheme = useCallback(() => {
     setThemeState((prev) => {
       const next = prev === "light" ? "dark" : "light";
-      localStorage.setItem(STORAGE_KEY, next);
+      safeSetItem(STORAGE_KEY, next);
       return next;
     });
   }, []);
