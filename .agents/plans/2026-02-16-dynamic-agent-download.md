@@ -31,7 +31,7 @@ Deliverables:
 - [x] Phase 21: Setup Status Page + Error States (React)
   - [x] (2026-02-16 14:00JST) Step 21.1 + 21.2: Added `acp_check_agent_available` Rust command, TS SDK `checkAgentAvailable`, build.rs + capabilities + tests
   - [x] (2026-02-16 14:15JST) Step 21.3-21.6: AgentSetupStatus component, useAcpSession spawnFailed+retry, AcpChat integration, CSS, 10 new tests (91 total TS, 55 Rust)
-- [ ] Phase 18: Agent Registry + Download Manager (Rust)
+- [x] Phase 18: Agent Registry + Download Manager (Rust)
   - [x] (2026-02-16 15:00JST) Step 18.1: Added Rust dependencies (reqwest, futures-util, flate2, tar, zip, sha2, tempfile)
   - [x] (2026-02-16 15:15JST) Step 18.2: Created `agent_registry.rs` with AgentDistribution, VersionPolicy, AgentRegistryEntry, PlatformInfo, default_registry(), 6 tests
   - [x] (2026-02-16 16:00JST) Step 18.3: Created `agent_download.rs` with AgentDownloadManager, AgentStatus, DownloadPhase, DownloadProgress, ResolvedAgent, DownloadError, helpers (extract_tar_gz, extract_zip, verify_sha256, detect_node, detect_npm), 19 tests (80 total Rust)
@@ -39,7 +39,9 @@ Deliverables:
 - [x] Phase 19: Modified Agent Spawning Flow (Rust + TypeScript)
   - [x] (2026-02-16 16:45JST) Step 19.1: Modified acp_spawn_agent to resolve via download manager before PATH fallback, added resolve_agent_spec helper
   - [x] (2026-02-16 17:00JST) Step 19.2: Added TypeScript SDK wrappers (checkAgent, downloadAgent, getAgentRegistry), new types (AgentStatus, DownloadProgress, ResolvedAgent, AgentRegistryEntry), re-exported from index.ts
-- [ ] Phase 20: Frontend Download UX (TypeScript + React)
+- [x] Phase 20: Frontend Download UX (TypeScript + React)
+  - [x] (2026-02-16 17:15JST) Steps 20.1-20.5: Created useAgentDownload hook, DownloadProgress component, updated AgentSetupStatus (download button + isDownloading), integrated into useAcpChat + AcpChat, added download progress CSS, events.ts (onDownloadProgress + DOWNLOAD_PROGRESS_CHANNEL)
+  - [x] (2026-02-16 22:40JST) Step 20.6: Tests — DownloadProgress (8), useAgentDownload (11), AgentSetupStatus download button (4), total 23 new tests (114 TS, 86 Rust)
 
 ## Surprises & Discoveries
 

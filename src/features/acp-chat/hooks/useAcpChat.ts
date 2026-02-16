@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import type { Message, UseAcpChatOptions, UseAcpChatReturn } from "../types";
 import { useAcpSession } from "./useAcpSession";
+import { useAgentDownload } from "./useAgentDownload";
 import { useReasoningLevel } from "./useReasoningLevel";
 
 export function useAcpChat(options: UseAcpChatOptions): UseAcpChatReturn {
@@ -28,6 +29,12 @@ export function useAcpChat(options: UseAcpChatOptions): UseAcpChatReturn {
     setMessages,
     setIsLoading,
   );
+
+  const {
+    progress: downloadProgress,
+    isDownloading,
+    download,
+  } = useAgentDownload(options.agentSpec.id);
 
   const { reasoningLevel, setReasoningLevel, getWireModelId } = useReasoningLevel({
     agentId: options.agentSpec.id,
@@ -113,6 +120,9 @@ export function useAcpChat(options: UseAcpChatOptions): UseAcpChatReturn {
     availableModels,
     currentModelId,
     reasoningLevel,
+    downloadProgress,
+    isDownloading,
+    download,
     append,
     stop,
     reset,

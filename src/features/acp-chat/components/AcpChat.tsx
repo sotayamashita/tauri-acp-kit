@@ -6,6 +6,7 @@ import { ChatInput } from "./ChatInput";
 import type { AgentSpec } from "tauri-acp";
 import type { ProviderConfig } from "../providers";
 import { AgentSetupStatus } from "./AgentSetupStatus";
+import { DownloadProgress } from "./DownloadProgress";
 import { Plus, AlertCircle, Sun, Moon, RotateCcw } from "lucide-react";
 import "./AcpChat.css";
 
@@ -35,6 +36,9 @@ export function AcpChat({
     isReady,
     spawnFailed,
     retry,
+    downloadProgress,
+    isDownloading,
+    download,
     availableModels,
     currentModelId,
     reasoningLevel,
@@ -79,13 +83,18 @@ export function AcpChat({
   }, [reset]);
 
   // Derive connection status for header display
-  const connectionStatus = error
-    ? "error"
-    : !isReady
-      ? "connecting"
-      : isLoading
-        ? "generating"
-        : "ready";
+  const connectionStatus =
+    error && !spawnFailed
+      ? "error"
+      : isDownloading
+        ? "downloading"
+        : !isReady && !spawnFailed
+          ? "connecting"
+          : isLoading
+            ? "generating"
+            : spawnFailed
+              ? "error"
+              : "ready";
 
   const handleSuggestClick = useCallback(
     (text: string) => {
@@ -101,7 +110,9 @@ export function AcpChat({
         <div className="acp-chat-header-left">
           <span className="acp-chat-header-title">{selectedProvider?.label || "Chat"}</span>
           <span className={`acp-chat-status ${connectionStatus}`} role="status" aria-live="polite">
-            {connectionStatus === "connecting" ? (
+            {connectionStatus === "downloading" ? (
+              "Downloading…"
+            ) : connectionStatus === "connecting" ? (
               "Connecting…"
             ) : connectionStatus === "generating" ? (
               "Generating…"
@@ -169,18 +180,28 @@ export function AcpChat({
         </div>
       </header>
 
+      {/* Download Progress */}
+      {isDownloading && downloadProgress && (
+        <DownloadProgress
+          progress={downloadProgress}
+          label={selectedProvider?.label || agentSpec.id}
+        />
+      )}
+
       {/* Setup Status (when agent binary is missing) */}
-      {spawnFailed && (
+      {spawnFailed && !isDownloading && (
         <AgentSetupStatus
           agentId={agentSpec.id}
           label={selectedProvider?.label || agentSpec.id}
           executable={agentSpec.executable}
           onCheckAgain={retry}
+          onDownload={download}
+          isDownloading={isDownloading}
         />
       )}
 
       {/* Message Area */}
-      {!spawnFailed && (
+      {!spawnFailed && !isDownloading && (
         <ChatMessageList
           messages={messages}
           isReady={isReady}

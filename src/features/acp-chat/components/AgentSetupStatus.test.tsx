@@ -113,4 +113,68 @@ describe("AgentSetupStatus", () => {
     expect(screen.getByText("Setting up Unknown")).toBeInTheDocument();
     expect(screen.getByText(/unknown-agent is not installed/)).toBeInTheDocument();
   });
+
+  it("renders Download button when onDownload is provided", () => {
+    const mockOnDownload = vi.fn();
+    render(
+      <AgentSetupStatus
+        agentId="codex-acp"
+        label="Codex"
+        executable="codex-acp"
+        onCheckAgain={mockOnCheckAgain}
+        onDownload={mockOnDownload}
+      />,
+    );
+
+    const downloadBtn = screen.getByRole("button", { name: /Download/i });
+    expect(downloadBtn).toBeInTheDocument();
+    expect(downloadBtn).not.toBeDisabled();
+  });
+
+  it("does not render Download button when onDownload is not provided", () => {
+    render(
+      <AgentSetupStatus
+        agentId="codex-acp"
+        label="Codex"
+        executable="codex-acp"
+        onCheckAgain={mockOnCheckAgain}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: /Download/i })).not.toBeInTheDocument();
+  });
+
+  it("Download button calls onDownload when clicked", () => {
+    const mockOnDownload = vi.fn();
+    render(
+      <AgentSetupStatus
+        agentId="codex-acp"
+        label="Codex"
+        executable="codex-acp"
+        onCheckAgain={mockOnCheckAgain}
+        onDownload={mockOnDownload}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Download/i }));
+    expect(mockOnDownload).toHaveBeenCalledOnce();
+  });
+
+  it("Download button is disabled and shows 'Downloading…' when isDownloading is true", () => {
+    const mockOnDownload = vi.fn();
+    render(
+      <AgentSetupStatus
+        agentId="codex-acp"
+        label="Codex"
+        executable="codex-acp"
+        onCheckAgain={mockOnCheckAgain}
+        onDownload={mockOnDownload}
+        isDownloading={true}
+      />,
+    );
+
+    const downloadBtn = screen.getByRole("button", { name: /Download/i });
+    expect(downloadBtn).toBeDisabled();
+    expect(downloadBtn).toHaveTextContent("Downloading…");
+  });
 });

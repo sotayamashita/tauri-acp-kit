@@ -1,11 +1,13 @@
 import { useCallback, useState } from "react";
-import { Copy, Check, RefreshCw } from "lucide-react";
+import { Copy, Check, RefreshCw, Download } from "lucide-react";
 
 interface AgentSetupStatusProps {
   agentId: string;
   label: string;
   executable: string;
   onCheckAgain: () => void;
+  onDownload?: () => void;
+  isDownloading?: boolean;
 }
 
 interface InstallInfo {
@@ -39,6 +41,8 @@ export function AgentSetupStatus({
   label,
   executable,
   onCheckAgain,
+  onDownload,
+  isDownloading = false,
 }: AgentSetupStatusProps) {
   const [copied, setCopied] = useState(false);
   const info = getInstallInfo(agentId, executable);
@@ -63,6 +67,18 @@ export function AgentSetupStatus({
       )}
 
       <div className="agent-setup-status-actions">
+        {onDownload && (
+          <button
+            type="button"
+            className="agent-setup-status-btn agent-setup-status-btn-primary"
+            onClick={onDownload}
+            disabled={isDownloading}
+            aria-label="Download"
+          >
+            <Download size={14} />
+            {isDownloading ? "Downloading…" : "Download"}
+          </button>
+        )}
         {info.command && (
           <button
             type="button"
@@ -76,7 +92,7 @@ export function AgentSetupStatus({
         )}
         <button
           type="button"
-          className="agent-setup-status-btn agent-setup-status-btn-primary"
+          className="agent-setup-status-btn agent-setup-status-btn-secondary"
           onClick={onCheckAgain}
           aria-label="Check Again"
         >

@@ -1123,3 +1123,65 @@
 .agent-setup-status-btn-primary:hover {
   opacity: 0.9;
 }
+
+.agent-setup-status-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* --- Download Progress --- */
+
+.download-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 2rem;
+  text-align: center;
+  gap: 0.75rem;
+}
+
+.download-progress-icon {
+  color: var(--chat-accent);
+  animation: downloadPulse 2s ease-in-out infinite;
+}
+
+.download-progress-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--chat-text);
+  margin: 0;
+}
+
+.download-progress-phase {
+  font-size: 0.875rem;
+  color: var(--chat-text-secondary);
+  margin: 0;
+}
+
+.download-progress-bar {
+  width: 100%;
+  max-width: 320px;
+  height: 6px;
+  background: var(--chat-border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.download-progress-fill {
+  height: 100%;
+  background: var(--chat-accent);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+@keyframes downloadPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
