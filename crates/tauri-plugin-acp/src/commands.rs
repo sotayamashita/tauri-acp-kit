@@ -27,9 +27,14 @@ struct ParsedSession {
 /// Check a JSON-RPC response for errors, returning a descriptive `Error::Protocol` if present.
 fn check_response(response: &JsonRpcResponse, context: &str) -> Result<(), Error> {
     if let Some(ref err) = response.error {
+        let data_str = err
+            .data
+            .as_ref()
+            .map(|d| format!(" data={}", d))
+            .unwrap_or_default();
         return Err(Error::Protocol(format!(
-            "{} failed: code={}, message={}",
-            context, err.code, err.message
+            "{} failed: code={}, message={}{}",
+            context, err.code, err.message, data_str
         )));
     }
     Ok(())
@@ -183,7 +188,7 @@ pub async fn acp_start_session<R: Runtime>(
     check_response(&response, "initialize")?;
     tracing::debug!("Initialize response: {:?}", response);
 
-    // ACP: session/new creates a new session (mcpServers required)
+    // ACP: session/new creates a new session
     let session_params = serde_json::json!({
         "cwd": cwd,
         "mcpServers": []
@@ -670,6 +675,25 @@ mod tests {
         assert!(msg.contains("initialize failed"));
         assert!(msg.contains("-32600"));
         assert!(msg.contains("Invalid request"));
+    }
+
+    #[test]
+    fn check_response_includes_data_field() {
+        let response = JsonRpcResponse {
+            jsonrpc: Some("2.0".to_string()),
+            id: crate::protocol::JsonRpcId::Number(1),
+            result: None,
+            error: Some(crate::protocol::JsonRpcError {
+                code: -32603,
+                message: "Internal error".to_string(),
+                data: Some(serde_json::json!("session init failed")),
+            }),
+        };
+        let err = check_response(&response, "session/new").unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("session/new failed"));
+        assert!(msg.contains("-32603"));
+        assert!(msg.contains("session init failed"));
     }
 
     #[test]
