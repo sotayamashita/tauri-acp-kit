@@ -18,11 +18,14 @@ Verification method: Run `cargo test -p tauri-plugin-acp`, `pnpm typecheck`, `pn
 - [x] Phase 2: Rust — `process.rs` extract notification parsers (2026-02-16: extracted get_session_id, get_text_content, 5 per-type parsers; rewrote parse_notification as 20-line dispatcher; simplified stderr_task with lines() iterator)
 - [x] Phase 3: Rust — `agent_download.rs` extract phases + path builders (2026-02-16: added agent_dir, github_version_dir, npm_entry_path builders; extracted fetch_latest_release, extract_and_set_permissions; 93 tests pass +3 new)
 - [x] Phase 4: Frontend — Split `useAcpSession.ts` into focused hooks (2026-02-16: created messageUpdaters.ts with 5 pure functions, useAcpEventListeners.ts hook; simplified useAcpSession.ts from 250 to 134 lines; 124 tests pass +10 new)
-- [ ] Phase 5: Frontend — Extract shared utilities (click-outside, localStorage, connectionStatus)
+- [x] Phase 5: Frontend — Extract shared utilities (2026-02-16: created useClickOutside hook, deriveConnectionStatus utility, safeLocalStorage wrappers; applied to AcpChat, DropdownSelect, App, useTheme, useReasoningLevel; 137 tests pass +13 new)
 
 ## Surprises & Discoveries
 
-(To be updated as work proceeds)
+- Phase 1: Commit message header length limit (100 chars) required shortening the first attempt.
+- Phase 2: `AsyncBufReadExt::lines()` simplified `stderr_task` more than expected (24→8 lines).
+- Phase 4: Changed `session` from `useRef` to `useState` so `useAcpEventListeners` can react to session changes in its dependency array. This was not anticipated in the plan but was necessary for correct hook composition.
+- Phase 5: `useTheme.ts` had no try/catch around localStorage calls (unlike App.tsx and useReasoningLevel.ts which already had them). The `safeLocalStorage` wrapper adds safety that was previously missing.
 
 ## Decision Log
 
@@ -40,7 +43,39 @@ Verification method: Run `cargo test -p tauri-plugin-acp`, `pnpm typecheck`, `pn
 
 ## Outcomes & Retrospective
 
-(To be updated as phases complete)
+All 5 phases completed on 2026-02-16. Summary:
+
+### Test counts
+
+- Rust: 90 → 93 (+3 new in Phase 3). All 90 original tests unmodified.
+- TypeScript: 114 → 137 (+23 new across Phases 4-5). All 114 original tests unmodified.
+- Total: 204 → 230
+
+### Lines changed (net)
+
+- Phase 1: commands.rs — extracted 3 helpers, unified error formatting
+- Phase 2: process.rs — extracted 7 helpers, 20-line dispatcher, simplified stderr_task
+- Phase 3: agent_download.rs — 3 path builders, 2 extracted functions, ReleaseAsset struct
+- Phase 4: useAcpSession.ts 250→134 lines, +2 new files (messageUpdaters.ts, useAcpEventListeners.ts)
+- Phase 5: -63/+26 lines across 5 modified files, +6 new files (3 utilities + 3 test files)
+
+### Key outcomes
+
+- No function exceeds 60 lines (goal met)
+- Cyclomatic complexity reduced below 5 in all refactored functions (goal met)
+- Zero behavioral changes: all original tests pass without modification throughout
+- Click-outside pattern exists in exactly one place (useClickOutside hook)
+- localStorage access pattern exists in exactly one place (storage.ts)
+- Connection status derivation exists in exactly one place (connectionStatus.ts)
+- Error formatting in Rust unified via check_response helper
+
+### Commits
+
+1. `refactor(acp): extract helpers from acp_start_session and unify error formatting`
+2. `refactor(acp): extract notification parsers and simplify stderr_task`
+3. `refactor(acp): extract path builders and helpers from agent_download`
+4. `refactor(frontend): split useAcpSession into focused hooks`
+5. `refactor(frontend): extract shared hooks and utilities`
 
 ## Context and Orientation
 
