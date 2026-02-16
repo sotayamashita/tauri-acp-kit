@@ -105,6 +105,24 @@ impl AgentDownloadManager {
         &self.base_dir
     }
 
+    /// Get the directory for a specific agent.
+    fn agent_dir(&self, id: &str) -> PathBuf {
+        self.base_dir.join(id)
+    }
+
+    /// Get the version directory for a GitHub release agent.
+    fn github_version_dir(&self, id: &str, version: &str) -> PathBuf {
+        self.agent_dir(id).join(version)
+    }
+
+    /// Get the entry point path for an npm package agent.
+    fn npm_entry_path(&self, id: &str, package: &str, entry: &str) -> PathBuf {
+        self.agent_dir(id)
+            .join("node_modules")
+            .join(package)
+            .join(entry)
+    }
+
     /// Check if an agent is installed locally.
     pub fn check_status(&self, entry: &AgentRegistryEntry) -> AgentStatus {
         match &entry.distribution {
@@ -119,7 +137,7 @@ impl AgentDownloadManager {
     }
 
     fn check_github_release_status(&self, entry: &AgentRegistryEntry) -> AgentStatus {
-        let agent_dir = self.base_dir.join(&entry.id);
+        let agent_dir = self.agent_dir(&entry.id);
         if !agent_dir.exists() {
             return AgentStatus::NotInstalled;
         }
@@ -148,12 +166,7 @@ impl AgentDownloadManager {
         package_name: &str,
         entry_point: &str,
     ) -> AgentStatus {
-        let entry_path = self
-            .base_dir
-            .join(&entry.id)
-            .join("node_modules")
-            .join(package_name)
-            .join(entry_point);
+        let entry_path = self.npm_entry_path(&entry.id, package_name, entry_point);
 
         if entry_path.exists() {
             AgentStatus::Installed {
@@ -224,93 +237,30 @@ impl AgentDownloadManager {
         asset_template: &str,
     ) -> Result<ResolvedAgent, DownloadError> {
         let platform = PlatformInfo::detect().ok_or(DownloadError::UnsupportedPlatform)?;
-
         emit_download_progress(app, &entry.id, DownloadPhase::Resolving, 0, None);
 
-        // Fetch latest release from GitHub API
-        let api_url = format!(
-            "https://api.github.com/repos/{}/{}/releases/latest",
-            owner, repo
-        );
-        let client = reqwest::Client::new();
-        let release: serde_json::Value = client
-            .get(&api_url)
-            .header("User-Agent", "tauri-acp-kit")
-            .send()
-            .await?
-            .json()
-            .await?;
+        let release = fetch_latest_release(owner, repo, asset_template, &platform).await?;
 
-        let tag = release["tag_name"]
-            .as_str()
-            .ok_or_else(|| DownloadError::GithubApiError("No tag_name in release".to_string()))?;
-        let version = tag.strip_prefix('v').unwrap_or(tag);
-
-        // Construct asset name from template
-        let asset_name = asset_template
-            .replace("{version}", version)
-            .replace("{target}", &platform.target())
-            .replace("{ext}", platform.ext);
-
-        // Find download URL
-        let assets = release["assets"]
-            .as_array()
-            .ok_or_else(|| DownloadError::GithubApiError("No assets array".to_string()))?;
-        let asset = assets
-            .iter()
-            .find(|a| a["name"].as_str() == Some(&asset_name))
-            .ok_or_else(|| {
-                DownloadError::GithubApiError(format!(
-                    "Asset '{}' not found in release",
-                    asset_name
-                ))
-            })?;
-        let download_url = asset["browser_download_url"]
-            .as_str()
-            .ok_or_else(|| DownloadError::GithubApiError("No browser_download_url".to_string()))?;
-
-        // Prepare directories
-        let version_dir = self.base_dir.join(&entry.id).join(version);
+        let version_dir = self.github_version_dir(&entry.id, &release.version);
         std::fs::create_dir_all(&version_dir)?;
         let temp_dir = tempfile::tempdir()?;
-        let archive_path = temp_dir.path().join(&asset_name);
+        let archive_path = temp_dir.path().join(&release.asset_name);
 
-        // Download archive
-        self.download_file_with_progress(app, &entry.id, download_url, &archive_path)
+        self.download_file_with_progress(app, &entry.id, &release.download_url, &archive_path)
             .await?;
 
-        // Extract
         emit_download_progress(app, &entry.id, DownloadPhase::Extracting, 0, None);
-        if platform.ext == "tar.gz" {
-            extract_tar_gz(&archive_path, &version_dir)?;
-        } else {
-            extract_zip(&archive_path, &version_dir)?;
-        }
-
-        // Set executable permissions on Unix
         let bin_name = binary_name_for_id(&entry.id);
-        let binary_path = version_dir.join(&bin_name);
+        let binary_path =
+            extract_and_set_permissions(&archive_path, &version_dir, &bin_name, platform.ext)?;
 
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            if binary_path.exists() {
-                std::fs::set_permissions(
-                    &binary_path,
-                    std::fs::Permissions::from_mode(0o755),
-                )?;
-            }
-        }
-
-        // Cleanup old versions
-        self.cleanup_old_versions(&entry.id, version)?;
-
+        self.cleanup_old_versions(&entry.id, &release.version)?;
         emit_download_progress(app, &entry.id, DownloadPhase::Complete, 0, None);
 
         Ok(ResolvedAgent {
             executable: binary_path.to_string_lossy().to_string(),
             args: vec![],
-            version: version.to_string(),
+            version: release.version,
         })
     }
 
@@ -328,7 +278,7 @@ impl AgentDownloadManager {
         emit_download_progress(app, &entry.id, DownloadPhase::Resolving, 0, None);
 
         // Create install directory
-        let install_dir = self.base_dir.join(&entry.id);
+        let install_dir = self.agent_dir(&entry.id);
         std::fs::create_dir_all(&install_dir)?;
 
         // Run npm install
@@ -346,10 +296,7 @@ impl AgentDownloadManager {
         }
 
         // Verify entry point exists
-        let entry_path = install_dir
-            .join("node_modules")
-            .join(package_name)
-            .join(entry_point);
+        let entry_path = self.npm_entry_path(&entry.id, package_name, entry_point);
         if !entry_path.exists() {
             return Err(DownloadError::EntryPointNotFound(
                 entry_path.to_string_lossy().to_string(),
@@ -409,7 +356,7 @@ impl AgentDownloadManager {
         agent_id: &str,
         current_version: &str,
     ) -> std::io::Result<()> {
-        let agent_dir = self.base_dir.join(agent_id);
+        let agent_dir = self.agent_dir(agent_id);
         if !agent_dir.exists() {
             return Ok(());
         }
@@ -423,6 +370,93 @@ impl AgentDownloadManager {
         }
         Ok(())
     }
+}
+
+/// Resolved metadata from a GitHub release API response.
+struct ReleaseAsset {
+    version: String,
+    asset_name: String,
+    download_url: String,
+}
+
+/// Fetch the latest release from GitHub and resolve the download URL for the platform asset.
+async fn fetch_latest_release(
+    owner: &str,
+    repo: &str,
+    asset_template: &str,
+    platform: &PlatformInfo,
+) -> Result<ReleaseAsset, DownloadError> {
+    let api_url = format!(
+        "https://api.github.com/repos/{}/{}/releases/latest",
+        owner, repo
+    );
+    let client = reqwest::Client::new();
+    let release: serde_json::Value = client
+        .get(&api_url)
+        .header("User-Agent", "tauri-acp-kit")
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    let tag = release["tag_name"]
+        .as_str()
+        .ok_or_else(|| DownloadError::GithubApiError("No tag_name in release".to_string()))?;
+    let version = tag.strip_prefix('v').unwrap_or(tag).to_string();
+
+    let asset_name = asset_template
+        .replace("{version}", &version)
+        .replace("{target}", &platform.target())
+        .replace("{ext}", platform.ext);
+
+    let assets = release["assets"]
+        .as_array()
+        .ok_or_else(|| DownloadError::GithubApiError("No assets array".to_string()))?;
+    let asset = assets
+        .iter()
+        .find(|a| a["name"].as_str() == Some(&asset_name))
+        .ok_or_else(|| {
+            DownloadError::GithubApiError(format!(
+                "Asset '{}' not found in release",
+                asset_name
+            ))
+        })?;
+    let download_url = asset["browser_download_url"]
+        .as_str()
+        .ok_or_else(|| DownloadError::GithubApiError("No browser_download_url".to_string()))?
+        .to_string();
+
+    Ok(ReleaseAsset {
+        version,
+        asset_name,
+        download_url,
+    })
+}
+
+/// Extract an archive and set executable permissions on the binary.
+fn extract_and_set_permissions(
+    archive_path: &Path,
+    dest_dir: &Path,
+    binary_name: &str,
+    ext: &str,
+) -> Result<PathBuf, DownloadError> {
+    if ext == "tar.gz" {
+        extract_tar_gz(archive_path, dest_dir)?;
+    } else {
+        extract_zip(archive_path, dest_dir)?;
+    }
+
+    let binary_path = dest_dir.join(binary_name);
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if binary_path.exists() {
+            std::fs::set_permissions(&binary_path, std::fs::Permissions::from_mode(0o755))?;
+        }
+    }
+
+    Ok(binary_path)
 }
 
 /// Construct the binary name for an agent ID (adds .exe on Windows).
@@ -814,5 +848,93 @@ mod tests {
     fn download_error_converts_to_crate_error() {
         let err: crate::error::Error = DownloadError::NodeNotFound.into();
         assert!(err.to_string().contains("Node.js not found"));
+    }
+
+    // --- path builder tests ---
+
+    #[test]
+    fn path_builders_construct_expected_paths() {
+        let temp = tempfile::tempdir().unwrap();
+        let manager = AgentDownloadManager::new(temp.path().to_path_buf()).unwrap();
+
+        assert_eq!(
+            manager.agent_dir("codex-acp"),
+            manager.base_dir().join("codex-acp")
+        );
+        assert_eq!(
+            manager.github_version_dir("codex-acp", "1.2.3"),
+            manager.base_dir().join("codex-acp").join("1.2.3")
+        );
+        assert_eq!(
+            manager.npm_entry_path("claude-code-acp", "@zed-industries/claude-code-acp", "dist/index.js"),
+            manager
+                .base_dir()
+                .join("claude-code-acp")
+                .join("node_modules")
+                .join("@zed-industries/claude-code-acp")
+                .join("dist/index.js")
+        );
+    }
+
+    // --- extract_and_set_permissions tests ---
+
+    #[test]
+    fn extract_and_set_permissions_tar_gz() {
+        let temp = tempfile::tempdir().unwrap();
+        let archive_path = temp.path().join("test.tar.gz");
+
+        // Create a tar.gz containing a binary file
+        {
+            let file = std::fs::File::create(&archive_path).unwrap();
+            let enc = flate2::write::GzEncoder::new(file, flate2::Compression::default());
+            let mut builder = tar::Builder::new(enc);
+
+            let data = b"#!/bin/sh\necho hello";
+            let mut header = tar::Header::new_gnu();
+            header.set_size(data.len() as u64);
+            header.set_mode(0o644);
+            header.set_cksum();
+            builder
+                .append_data(&mut header, "test-bin", &data[..])
+                .unwrap();
+            builder.finish().unwrap();
+        }
+
+        let dest = temp.path().join("extracted");
+        std::fs::create_dir_all(&dest).unwrap();
+        let binary_path = extract_and_set_permissions(&archive_path, &dest, "test-bin", "tar.gz").unwrap();
+
+        assert!(binary_path.exists());
+        assert_eq!(binary_path, dest.join("test-bin"));
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = std::fs::metadata(&binary_path).unwrap().permissions().mode();
+            assert_eq!(mode & 0o755, 0o755);
+        }
+    }
+
+    #[test]
+    fn extract_and_set_permissions_zip() {
+        let temp = tempfile::tempdir().unwrap();
+        let archive_path = temp.path().join("test.zip");
+
+        {
+            let file = std::fs::File::create(&archive_path).unwrap();
+            let mut zip_writer = zip::ZipWriter::new(file);
+            let options = zip::write::SimpleFileOptions::default();
+            zip_writer.start_file("test-bin.exe", options).unwrap();
+            zip_writer.write_all(b"MZ binary data").unwrap();
+            zip_writer.finish().unwrap();
+        }
+
+        let dest = temp.path().join("extracted");
+        std::fs::create_dir_all(&dest).unwrap();
+        let binary_path =
+            extract_and_set_permissions(&archive_path, &dest, "test-bin.exe", "zip").unwrap();
+
+        assert!(binary_path.exists());
+        assert_eq!(binary_path, dest.join("test-bin.exe"));
     }
 }

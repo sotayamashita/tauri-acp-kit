@@ -16,7 +16,7 @@ Verification method: Run `cargo test -p tauri-plugin-acp`, `pnpm typecheck`, `pn
 
 - [x] Phase 1: Rust — `commands.rs` extract methods (2026-02-16: extracted send_initialize, send_authenticate, send_create_session; unified error formatting in acp_send_prompt via check_response)
 - [x] Phase 2: Rust — `process.rs` extract notification parsers (2026-02-16: extracted get_session_id, get_text_content, 5 per-type parsers; rewrote parse_notification as 20-line dispatcher; simplified stderr_task with lines() iterator)
-- [ ] Phase 3: Rust — `agent_download.rs` extract phases + path builders
+- [x] Phase 3: Rust — `agent_download.rs` extract phases + path builders (2026-02-16: added agent_dir, github_version_dir, npm_entry_path builders; extracted fetch_latest_release, extract_and_set_permissions; 93 tests pass +3 new)
 - [ ] Phase 4: Frontend — Split `useAcpSession.ts` into focused hooks
 - [ ] Phase 5: Frontend — Extract shared utilities (click-outside, localStorage, connectionStatus)
 
