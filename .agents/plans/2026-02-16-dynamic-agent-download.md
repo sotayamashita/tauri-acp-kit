@@ -42,6 +42,10 @@ Deliverables:
 - [x] Phase 20: Frontend Download UX (TypeScript + React)
   - [x] (2026-02-16 17:15JST) Steps 20.1-20.5: Created useAgentDownload hook, DownloadProgress component, updated AgentSetupStatus (download button + isDownloading), integrated into useAcpChat + AcpChat, added download progress CSS, events.ts (onDownloadProgress + DOWNLOAD_PROGRESS_CHANNEL)
   - [x] (2026-02-16 22:40JST) Step 20.6: Tests — DownloadProgress (8), useAgentDownload (11), AgentSetupStatus download button (4), total 23 new tests (114 TS, 86 Rust)
+- [x] Bugfix: codex-acp session/new -32603 Internal error
+  - [x] (2026-02-16 23:00JST) Root cause: ACP protocol requires `initialize → authenticate → session/new` flow. Our code skipped `authenticate`. codex-acp's `check_auth()` guard fails without it.
+  - [x] (2026-02-16 23:00JST) Fix: Parse `authMethods` from initialize response, call `authenticate` with first available method before session/new. Also improved `check_response` to include JSON-RPC error `data` field.
+  - [x] (2026-02-16 23:00JST) False lead: Initially suspected `mcpServers: []` vs `{}` format. DeepWiki for codex (monorepo) said map, but actual codex-acp uses `Vec<McpServer>` (array). Reverted.
 
 ## Surprises & Discoveries
 
@@ -58,6 +62,12 @@ Deliverables:
 - (2026-02-16) **The ACP Registry does not include SHA-256 hashes for codex-acp.** The `sha256` field in `RegistryTargetConfig` is optional, and the actual registry.json entry for codex-acp does not include it. Zed's `download_server_binary()` does support SHA-256 verification when the digest is available from the GitHub API. For our implementation, we will attempt SHA-256 verification when available but not require it.
 
 - (2026-02-16) **The `fix-path-env` crate already handles Node.js version manager paths.** The app's `lib.rs` calls `fix_path_env::fix()` which reads the user's shell profile and adds those paths to the process environment. This means Node.js installed via nvm, fnm, or volta should be discoverable via a simple `which node` call. No special version manager handling is needed.
+
+- (2026-02-16) **ACP protocol requires an `authenticate` step between `initialize` and `session/new` for codex-acp.** codex-acp's `new_session` handler calls `self.check_auth()?` at the top, which verifies that `AuthManager` has loaded credentials. Without calling the `authenticate` JSON-RPC method first, `AuthManager` doesn't load stored credentials (even if the user has done `codex login`), and `check_auth()` returns `Error::auth_required()` which becomes `-32603 Internal error`. The fix is to parse `authMethods` from the `initialize` response and call `authenticate` with the first available method (`chatgpt` for Codex subscription users). For users with stored credentials, this loads them without prompting a browser. claude-code-acp doesn't advertise `authMethods`, so the step is skipped. **Key learning: codex-acp uses `codex-core` library directly (not the codex CLI subprocess) and requires the `codex-login` crate's `AuthManager` to be initialized via the `authenticate` flow.**
+
+- (2026-02-16) **codex-acp and claude-code-acp use different JSON field naming conventions in ACP responses, but both use `Vec<McpServer>` (array) for `mcpServers`.** DeepWiki for the codex monorepo incorrectly suggested `mcpServers` should be a `BTreeMap` (object). The actual codex-acp `NewSessionRequest` struct defines `mcp_servers: Vec<McpServer>`. Sending `mcpServers: {}` causes `-32602 Invalid params: expected a sequence`. Always verify against the specific repo (`zed-industries/codex-acp`) rather than the monorepo (`zed-industries/codex`).
+
+- (2026-02-16) **codex-acp supports three authentication methods: `chatgpt` (browser/device OAuth via codex-login), `codex-api-key` (CODEX_API_KEY env var), and `openai-api-key` (OPENAI_API_KEY env var).** These are advertised in the `initialize` response's `authMethods` array. The `chatgpt` method corresponds to `codex login` CLI flow and is the default for Codex subscription users. The `NO_BROWSER` env var disables the `chatgpt` method (for SSH environments).
 
 - (2026-02-16) **Devil's advocate identified that a "Setup Status" page (option b) solves 80% of the UX problem with 5% of the effort.** The devil's advocate analysis calculated that full dynamic download requires 40+ hours of development and ongoing maintenance, while a setup status page with install instructions and a "check" button requires 2-4 hours. For a personal project with developer users, the simpler approach may be sufficient. However, the UX researcher noted that Zed's lazy-download approach (download on first use) provides a significantly better first-run experience. The compromise is a phased approach: start with a setup status page (Phase 21), then add actual downloading (Phase 18-19) behind it.
 
@@ -90,6 +100,14 @@ Deliverables:
 - Decision: Phase order is Setup Status → Rust Download Manager → Modified Spawn → Frontend UX
   Rationale: The setup status page (Phase 21) provides immediate value with minimal effort — users see what's missing and how to fix it. The Rust download manager (Phase 18) is the core infrastructure. Modified spawn (Phase 19) integrates the manager into the existing flow. Frontend UX (Phase 20) adds progress indicators and polish. This order ensures the app is usable at every intermediate step.
   Date/Author: 2026-02-16 / Team lead (reordered from architect's proposal based on devil's advocate feedback)
+
+- Decision: Always call `authenticate` before `session/new` when `authMethods` is present in initialize response
+  Rationale: codex-acp requires authentication even when credentials are already stored on disk — the `authenticate` call triggers `AuthManager.reload()` to load them. Skipping this step causes `-32603 Internal error`. The authenticate step is conditional: only sent when the agent's initialize response includes `authMethods`. claude-code-acp doesn't advertise auth methods and thus skips this step. The first method in the array is used (typically `chatgpt` for Codex subscription users).
+  Date/Author: 2026-02-16
+
+- Decision: Include JSON-RPC error `data` field in `check_response` error messages
+  Rationale: Agent implementations like codex-acp include detailed error information in the `data` field (e.g., deserialization errors, auth failure reasons). The original `check_response` only included `code` and `message`, hiding useful debugging information. Adding `data` to the formatted error significantly improves debuggability.
+  Date/Author: 2026-02-16
 
 ## Outcomes & Retrospective
 

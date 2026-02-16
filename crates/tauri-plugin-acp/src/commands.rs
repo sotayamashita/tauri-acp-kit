@@ -40,6 +40,38 @@ fn check_response(response: &JsonRpcResponse, context: &str) -> Result<(), Error
     Ok(())
 }
 
+/// Resolve a cwd path to an absolute path.
+///
+/// codex-acp requires an absolute `cwd` in `session/new`. If the given path
+/// is already absolute it is returned as-is; otherwise it is joined with
+/// `std::env::current_dir()`.
+fn resolve_absolute_cwd(cwd: &str) -> String {
+    let p = std::path::Path::new(cwd);
+    if p.is_absolute() {
+        cwd.to_string()
+    } else {
+        std::env::current_dir()
+            .map(|base| {
+                let joined = base.join(p);
+                // Normalize away `.` and `..` components without touching the filesystem.
+                // std::fs::canonicalize is not used because it requires the path to exist.
+                let mut components = Vec::new();
+                for c in joined.components() {
+                    match c {
+                        std::path::Component::CurDir => {}
+                        std::path::Component::ParentDir => {
+                            components.pop();
+                        }
+                        other => components.push(other),
+                    }
+                }
+                let normalized: std::path::PathBuf = components.iter().collect();
+                normalized.to_string_lossy().into_owned()
+            })
+            .unwrap_or_else(|_| cwd.to_string())
+    }
+}
+
 /// Parse session ID, models, and current model from a session/new result.
 fn parse_session_response(result: Option<&serde_json::Value>) -> ParsedSession {
     // Extract session ID
@@ -218,8 +250,11 @@ pub async fn acp_start_session<R: Runtime>(
     }
 
     // ACP: session/new creates a new session
+    // codex-acp requires an absolute cwd path; resolve relative paths here.
+    let abs_cwd = resolve_absolute_cwd(&cwd);
+
     let session_params = serde_json::json!({
-        "cwd": cwd,
+        "cwd": abs_cwd,
         "mcpServers": []
     });
 
@@ -809,5 +844,25 @@ mod tests {
         let result =
             check_executable_on_path("this-binary-definitely-does-not-exist-xyz123").await;
         assert!(!result);
+    }
+
+    #[test]
+    fn resolve_absolute_cwd_returns_absolute_as_is() {
+        let result = resolve_absolute_cwd("/home/user/project");
+        assert_eq!(result, "/home/user/project");
+    }
+
+    #[test]
+    fn resolve_absolute_cwd_resolves_relative_dot() {
+        let result = resolve_absolute_cwd(".");
+        let expected = std::env::current_dir().unwrap();
+        assert_eq!(result, expected.to_string_lossy());
+    }
+
+    #[test]
+    fn resolve_absolute_cwd_resolves_relative_subdir() {
+        let result = resolve_absolute_cwd("src");
+        let expected = std::env::current_dir().unwrap().join("src");
+        assert_eq!(result, expected.to_string_lossy());
     }
 }
