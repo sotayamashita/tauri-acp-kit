@@ -85,7 +85,10 @@ pub async fn acp_spawn_agent<R: Runtime>(
     let agent_id = format!("{}-{}", spec.id, uuid::Uuid::new_v4());
     tracing::info!(agent_id = %agent_id, spec_id = %spec.id, "Creating new agent with unique ID");
 
-    let agent = AgentProcess::spawn(app.clone(), spec, agent_id.clone()).await?;
+    // Resolve executable: try download manager first, then fall back to PATH
+    let resolved_spec = resolve_agent_spec(&app, &state, spec).await;
+
+    let agent = AgentProcess::spawn(app.clone(), resolved_spec, agent_id.clone()).await?;
     state.add_agent(agent).await;
 
     emit_event(
@@ -96,6 +99,69 @@ pub async fn acp_spawn_agent<R: Runtime>(
     );
 
     Ok(agent_id)
+}
+
+/// Resolve an AgentSpec by checking the download manager for a managed binary.
+///
+/// If the executable is an absolute path, use it as-is.
+/// If the agent is in the registry and managed, use the resolved path.
+/// Otherwise, fall back to the original spec (PATH lookup).
+async fn resolve_agent_spec<R: Runtime>(
+    app: &AppHandle<R>,
+    state: &State<'_, PluginState>,
+    spec: AgentSpec,
+) -> AgentSpec {
+    // Absolute paths are used as-is (custom override)
+    if std::path::Path::new(&spec.executable).is_absolute() {
+        return spec;
+    }
+
+    // Try to resolve from download manager
+    let registry = state.get_registry().await;
+    let entry = match registry.iter().find(|e| e.id == spec.id) {
+        Some(e) => e,
+        None => return spec, // Not in registry, use PATH
+    };
+
+    let dm_guard = match state.get_download_manager().await {
+        Ok(guard) => guard,
+        Err(_) => return spec, // No download manager, use PATH
+    };
+
+    let manager = match dm_guard.as_ref() {
+        Some(m) => m,
+        None => return spec,
+    };
+
+    match manager.resolve_executable(app, entry).await {
+        Ok(resolved) => {
+            tracing::info!(
+                spec_id = %spec.id,
+                executable = %resolved.executable,
+                version = %resolved.version,
+                "Resolved agent from download manager"
+            );
+            AgentSpec {
+                executable: resolved.executable,
+                args: if resolved.args.is_empty() {
+                    spec.args
+                } else {
+                    let mut args = resolved.args;
+                    args.extend(spec.args);
+                    args
+                },
+                ..spec
+            }
+        }
+        Err(e) => {
+            tracing::warn!(
+                spec_id = %spec.id,
+                error = %e,
+                "Download manager resolution failed, falling back to PATH"
+            );
+            spec
+        }
+    }
 }
 
 #[tauri::command]

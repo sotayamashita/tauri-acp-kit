@@ -47,3 +47,31 @@ export interface SessionInfo {
 }
 
 export type UnlistenFn = () => void;
+
+export type AgentStatus =
+  | { status: "not_installed" }
+  | { status: "downloading"; progress: number }
+  | { status: "installed"; version: string; executable_path: string }
+  | { status: "failed"; error: string };
+
+export interface DownloadProgress {
+  agentId: string;
+  bytesDownloaded: number;
+  totalBytes: number | null;
+  phase: "resolving" | "downloading" | "verifying" | "extracting" | "complete" | "failed";
+}
+
+export interface ResolvedAgent {
+  executable: string;
+  args: string[];
+  version: string;
+}
+
+export interface AgentRegistryEntry {
+  id: string;
+  label: string;
+  distribution:
+    | { type: "github_release"; owner: string; repo: string; asset_template: string }
+    | { type: "npm_package"; package_name: string; entry_point: string };
+  versionPolicy: "latest" | { pinned: string };
+}
