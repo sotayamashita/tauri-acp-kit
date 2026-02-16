@@ -856,8 +856,7 @@ mod tests {
 
     #[tokio::test]
     async fn check_executable_on_path_returns_false_for_nonexistent() {
-        let result =
-            check_executable_on_path("this-binary-definitely-does-not-exist-xyz123").await;
+        let result = check_executable_on_path("this-binary-definitely-does-not-exist-xyz123").await;
         assert!(!result);
     }
 

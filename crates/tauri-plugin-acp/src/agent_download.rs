@@ -8,12 +8,16 @@ use tauri::Emitter;
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum AgentStatus {
     NotInstalled,
-    Downloading { progress: f64 },
+    Downloading {
+        progress: f64,
+    },
     Installed {
         version: String,
         executable_path: String,
     },
-    Failed { error: String },
+    Failed {
+        error: String,
+    },
 }
 
 /// Phase of a download operation.
@@ -126,9 +130,7 @@ impl AgentDownloadManager {
     /// Check if an agent is installed locally.
     pub fn check_status(&self, entry: &AgentRegistryEntry) -> AgentStatus {
         match &entry.distribution {
-            AgentDistribution::GithubRelease { .. } => {
-                self.check_github_release_status(entry)
-            }
+            AgentDistribution::GithubRelease { .. } => self.check_github_release_status(entry),
             AgentDistribution::NpmPackage {
                 package_name,
                 entry_point,
@@ -416,10 +418,7 @@ async fn fetch_latest_release(
         .iter()
         .find(|a| a["name"].as_str() == Some(&asset_name))
         .ok_or_else(|| {
-            DownloadError::GithubApiError(format!(
-                "Asset '{}' not found in release",
-                asset_name
-            ))
+            DownloadError::GithubApiError(format!("Asset '{}' not found in release", asset_name))
         })?;
     let download_url = asset["browser_download_url"]
         .as_str()
@@ -824,9 +823,7 @@ mod tests {
         std::fs::create_dir_all(agent_dir.join("0.9.1")).unwrap();
         std::fs::create_dir_all(agent_dir.join("0.9.2")).unwrap();
 
-        manager
-            .cleanup_old_versions("test-agent", "0.9.2")
-            .unwrap();
+        manager.cleanup_old_versions("test-agent", "0.9.2").unwrap();
 
         assert!(!agent_dir.join("0.9.0").exists());
         assert!(!agent_dir.join("0.9.1").exists());
@@ -866,7 +863,11 @@ mod tests {
             manager.base_dir().join("codex-acp").join("1.2.3")
         );
         assert_eq!(
-            manager.npm_entry_path("claude-code-acp", "@zed-industries/claude-code-acp", "dist/index.js"),
+            manager.npm_entry_path(
+                "claude-code-acp",
+                "@zed-industries/claude-code-acp",
+                "dist/index.js"
+            ),
             manager
                 .base_dir()
                 .join("claude-code-acp")
@@ -902,7 +903,8 @@ mod tests {
 
         let dest = temp.path().join("extracted");
         std::fs::create_dir_all(&dest).unwrap();
-        let binary_path = extract_and_set_permissions(&archive_path, &dest, "test-bin", "tar.gz").unwrap();
+        let binary_path =
+            extract_and_set_permissions(&archive_path, &dest, "test-bin", "tar.gz").unwrap();
 
         assert!(binary_path.exists());
         assert_eq!(binary_path, dest.join("test-bin"));
@@ -910,7 +912,10 @@ mod tests {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let mode = std::fs::metadata(&binary_path).unwrap().permissions().mode();
+            let mode = std::fs::metadata(&binary_path)
+                .unwrap()
+                .permissions()
+                .mode();
             assert_eq!(mode & 0o755, 0o755);
         }
     }
