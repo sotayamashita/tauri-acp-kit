@@ -566,7 +566,7 @@ Verification: `pnpm typecheck` and `pnpm test:run` pass. Start the app without a
 
 ### Phase 21 Commands
 
-    cd /Users/sotayamashita/Projects/personal/tauri-acp-kit
+    cd /path/to/tauri-acp-kit
 
     # After Rust changes:
     cargo test -p tauri-plugin-acp
@@ -585,7 +585,7 @@ Verification: `pnpm typecheck` and `pnpm test:run` pass. Start the app without a
 
 ### Phase 18 Commands
 
-    cd /Users/sotayamashita/Projects/personal/tauri-acp-kit
+    cd /path/to/tauri-acp-kit
 
     # After adding Rust dependencies:
     cargo build
@@ -599,7 +599,7 @@ Verification: `pnpm typecheck` and `pnpm test:run` pass. Start the app without a
 
 ### Phase 19 Commands
 
-    cd /Users/sotayamashita/Projects/personal/tauri-acp-kit
+    cd /path/to/tauri-acp-kit
 
     # After Rust changes:
     cargo test -p tauri-plugin-acp
@@ -617,11 +617,11 @@ Verification: `pnpm typecheck` and `pnpm test:run` pass. Start the app without a
     # Ensure codex-acp is NOT on PATH
     # Select "Codex" provider → agent auto-downloads and connects
     # Check app data directory for downloaded binary:
-    ls ~/Library/Application\ Support/com.sotayamashita.tauri-acp-kit/agents/codex-acp/
+    ls ~/Library/Application\ Support/com.example.tauri-acp-kit/agents/codex-acp/
 
 ### Phase 20 Commands
 
-    cd /Users/sotayamashita/Projects/personal/tauri-acp-kit
+    cd /path/to/tauri-acp-kit
 
     pnpm typecheck
     pnpm test:run
@@ -637,7 +637,7 @@ Verification: `pnpm typecheck` and `pnpm test:run` pass. Start the app without a
 
 ### Build Validation
 
-    cd /Users/sotayamashita/Projects/personal/tauri-acp-kit
+    cd /path/to/tauri-acp-kit
     cargo test -p tauri-plugin-acp    # Expect: 65+ tests pass (existing + new)
     cargo build                        # Expect: No errors
     pnpm typecheck                     # Expect: No type errors
@@ -661,10 +661,10 @@ With `pnpm tauri dev` running:
 
 After successful download:
 
-    ls ~/Library/Application\ Support/com.sotayamashita.tauri-acp-kit/agents/codex-acp/
+    ls ~/Library/Application\ Support/com.example.tauri-acp-kit/agents/codex-acp/
     # Expected: version directory (e.g., 0.9.2/) containing codex-acp binary
 
-    file ~/Library/Application\ Support/com.sotayamashita.tauri-acp-kit/agents/codex-acp/0.9.2/codex-acp
+    file ~/Library/Application\ Support/com.example.tauri-acp-kit/agents/codex-acp/0.9.2/codex-acp
     # Expected: Mach-O 64-bit executable arm64 (on Apple Silicon)
 
 ## Idempotence and Recovery
