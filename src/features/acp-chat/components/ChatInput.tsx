@@ -117,7 +117,16 @@ export function ChatInput({
               items={availableModels}
               selectedId={currentModelId}
               onSelect={(m) => onModelSelect(m.id)}
-              renderLabel={(m) => m.name}
+              renderLabel={(m) =>
+                selectedProvider?.id === "claude-code-acp" && m.description ? (
+                  <span className="acp-chat-model-option">
+                    <span className="acp-chat-model-option-name">{m.name}</span>
+                    <span className="acp-chat-model-option-desc">{m.description}</span>
+                  </span>
+                ) : (
+                  m.name
+                )
+              }
               getItemId={(m) => m.id}
               triggerLabel={currentModelName ?? "Default"}
               disabled={!isReady || availableModels.length === 0}
