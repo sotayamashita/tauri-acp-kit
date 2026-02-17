@@ -19,6 +19,7 @@ interface ChatMessageListProps {
   isLoading: boolean;
   providerLabel?: string;
   modelId?: string | null;
+  modelDisplayName?: string | null;
   onSuggestClick?: (text: string) => void;
 }
 
@@ -28,6 +29,7 @@ export function ChatMessageList({
   isLoading,
   providerLabel,
   modelId,
+  modelDisplayName,
   onSuggestClick,
 }: ChatMessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -73,7 +75,9 @@ export function ChatMessageList({
           {isReady ? (
             <div className="acp-chat-empty-content">
               <p className="acp-chat-empty-title">{providerLabel || "Chat"}</p>
-              {modelId ? <p className="acp-chat-empty-model">{formatModelId(modelId)}</p> : null}
+              {modelId ? (
+                <p className="acp-chat-empty-model">{modelDisplayName || formatModelId(modelId)}</p>
+              ) : null}
               <div className="acp-chat-suggest-chips">
                 {SUGGESTED_PROMPTS.map((prompt) => (
                   <button

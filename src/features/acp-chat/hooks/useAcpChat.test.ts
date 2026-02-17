@@ -61,6 +61,44 @@ describe("useAcpChat model support", () => {
     expect(result.current.currentModelId).toBe("claude-sonnet-4");
   });
 
+  it("exposes currentModelName from model.name after initialization", async () => {
+    const { result } = renderHook(() => useAcpChat({ agentSpec: testAgentSpec }));
+
+    await waitFor(() => {
+      expect(result.current.isReady).toBe(true);
+    });
+
+    expect(result.current.currentModelName).toBe("Claude Sonnet 4");
+  });
+
+  it("currentModelName updates when model changes", async () => {
+    const { result } = renderHook(() => useAcpChat({ agentSpec: testAgentSpec }));
+
+    await waitFor(() => {
+      expect(result.current.isReady).toBe(true);
+    });
+
+    await act(async () => {
+      await result.current.setModel("claude-opus-4");
+    });
+
+    expect(result.current.currentModelName).toBe("Claude Opus 4");
+  });
+
+  it("currentModelName is null when no model is matched", async () => {
+    const { result } = renderHook(() => useAcpChat({ agentSpec: testAgentSpec }));
+
+    await waitFor(() => {
+      expect(result.current.isReady).toBe(true);
+    });
+
+    await act(async () => {
+      await result.current.setModel("nonexistent-model");
+    });
+
+    expect(result.current.currentModelName).toBeNull();
+  });
+
   it("setModel updates currentModelId", async () => {
     const { result } = renderHook(() => useAcpChat({ agentSpec: testAgentSpec }));
 
@@ -73,6 +111,98 @@ describe("useAcpChat model support", () => {
     });
 
     expect(result.current.currentModelId).toBe("claude-opus-4");
+  });
+});
+
+const codexModels = [
+  { id: "gpt-5.3-codex/low", name: "gpt-5.3-codex (low)" },
+  { id: "gpt-5.3-codex/medium", name: "gpt-5.3-codex (medium)" },
+  { id: "gpt-5.3-codex/high", name: "gpt-5.3-codex (high)" },
+  { id: "o4-mini/low", name: "o4-mini (low)" },
+  { id: "o4-mini/medium", name: "o4-mini (medium)" },
+  { id: "o4-mini/high", name: "o4-mini (high)" },
+];
+
+describe("useAcpChat compound model deduplication", () => {
+  beforeEach(() => {
+    setupTauriMocks({
+      "plugin:acp|acp_spawn_agent": () => "test-agent-id",
+      "plugin:acp|acp_start_session": () => ({
+        sessionId: "test-session-id",
+        models: codexModels,
+        currentModelId: "gpt-5.3-codex/medium",
+      }),
+      "plugin:acp|acp_set_model": () => undefined,
+      "plugin:acp|acp_terminate_agent": () => undefined,
+    });
+  });
+
+  afterEach(() => {
+    cleanupTauriMocks();
+  });
+
+  it("deduplicates compound model IDs when supportsReasoningLevel is true", async () => {
+    const { result } = renderHook(() =>
+      useAcpChat({ agentSpec: codexAgentSpec, supportsReasoningLevel: true }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.isReady).toBe(true);
+    });
+
+    expect(result.current.availableModels).toHaveLength(2);
+    expect(result.current.availableModels[0].id).toBe("gpt-5.3-codex");
+    expect(result.current.availableModels[1].id).toBe("o4-mini");
+  });
+
+  it("derives base model ID from compound currentModelId", async () => {
+    const { result } = renderHook(() =>
+      useAcpChat({ agentSpec: codexAgentSpec, supportsReasoningLevel: true }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.isReady).toBe(true);
+    });
+
+    // currentModelId should be the base model, not the compound ID
+    expect(result.current.currentModelId).toBe("gpt-5.3-codex");
+  });
+
+  it("exposes reasoning levels for the current model", async () => {
+    const { result } = renderHook(() =>
+      useAcpChat({ agentSpec: codexAgentSpec, supportsReasoningLevel: true }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.isReady).toBe(true);
+    });
+
+    expect(result.current.reasoningLevels).toEqual(["low", "medium", "high"]);
+  });
+
+  it("currentModelName uses base model name for compound IDs", async () => {
+    const { result } = renderHook(() =>
+      useAcpChat({ agentSpec: codexAgentSpec, supportsReasoningLevel: true }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.isReady).toBe(true);
+    });
+
+    expect(result.current.currentModelName).toBe("gpt-5.3-codex");
+  });
+
+  it("does not deduplicate when supportsReasoningLevel is false", async () => {
+    const { result } = renderHook(() =>
+      useAcpChat({ agentSpec: codexAgentSpec, supportsReasoningLevel: false }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.isReady).toBe(true);
+    });
+
+    // All 6 models should be present without deduplication
+    expect(result.current.availableModels).toHaveLength(6);
   });
 });
 

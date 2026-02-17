@@ -78,7 +78,9 @@ export interface UseAcpChatReturn {
   retry: () => void;
   availableModels: AcpModel[];
   currentModelId: string | null;
+  currentModelName: string | null;
   reasoningLevel: ReasoningLevel | null;
+  reasoningLevels: string[] | null;
   downloadProgress: DownloadProgress | null;
   isDownloading: boolean;
   download: () => Promise<void>;

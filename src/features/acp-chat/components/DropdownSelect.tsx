@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useState, useRef, useCallback } from "react";
 import { useClickOutside } from "../hooks/useClickOutside";
 import { ChevronDown } from "lucide-react";
@@ -6,7 +7,7 @@ interface DropdownSelectProps<T> {
   items: T[];
   selectedId: string | null;
   onSelect: (item: T) => void;
-  renderLabel: (item: T) => string;
+  renderLabel: (item: T) => ReactNode;
   getItemId: (item: T) => string;
   triggerLabel: string;
   disabled?: boolean;

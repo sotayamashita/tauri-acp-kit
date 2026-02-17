@@ -55,6 +55,12 @@ export function useAcpSession(
   useEffect(() => {
     let mounted = true;
 
+    // Clear stale state from previous provider immediately
+    setAvailableModels([]);
+    setCurrentModelId(null);
+    setIsReady(false);
+    setError(null);
+
     const init = async () => {
       try {
         const agent = new AcpAgent();

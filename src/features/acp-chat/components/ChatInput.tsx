@@ -4,7 +4,6 @@ import type { AcpModel } from "tauri-acp";
 import type { ProviderConfig, ReasoningLevel } from "../providers";
 import { REASONING_LEVELS } from "../providers";
 import { Play, Square } from "lucide-react";
-import { formatModelId } from "../format-model-id";
 import { DropdownSelect } from "./DropdownSelect";
 
 // Hoisted to module level to avoid re-creating array on every render (rerender-memo-with-default-value)
@@ -19,9 +18,11 @@ interface ChatInputProps {
   onStop: () => void;
   availableModels: AcpModel[];
   currentModelId: string | null;
+  currentModelName: string | null;
   onModelSelect: (modelId: string) => void;
   selectedProvider?: ProviderConfig;
   reasoningLevel: ReasoningLevel | null;
+  reasoningLevels: string[] | null;
   onReasoningSelect: (level: ReasoningLevel) => void;
 }
 
@@ -34,9 +35,11 @@ export function ChatInput({
   onStop,
   availableModels,
   currentModelId,
+  currentModelName,
   onModelSelect,
   selectedProvider,
   reasoningLevel,
+  reasoningLevels,
   onReasoningSelect,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -114,17 +117,26 @@ export function ChatInput({
               items={availableModels}
               selectedId={currentModelId}
               onSelect={(m) => onModelSelect(m.id)}
-              renderLabel={(m) => formatModelId(m.id)}
+              renderLabel={(m) =>
+                selectedProvider?.id === "claude-code-acp" && m.description ? (
+                  <span className="acp-chat-model-option">
+                    <span className="acp-chat-model-option-name">{m.name}</span>
+                    <span className="acp-chat-model-option-desc">{m.description}</span>
+                  </span>
+                ) : (
+                  m.name
+                )
+              }
               getItemId={(m) => m.id}
-              triggerLabel={currentModelId ? formatModelId(currentModelId) : "Default"}
+              triggerLabel={currentModelName ?? "Default"}
               disabled={!isReady || availableModels.length === 0}
             />
 
             {selectedProvider?.supportsReasoningLevel ? (
               <DropdownSelect
-                items={REASONING_LEVEL_ITEMS}
+                items={reasoningLevels ?? REASONING_LEVEL_ITEMS}
                 selectedId={reasoningLevel}
-                onSelect={(level) => onReasoningSelect(level)}
+                onSelect={(level) => onReasoningSelect(level as ReasoningLevel)}
                 renderLabel={(level) => level.charAt(0).toUpperCase() + level.slice(1)}
                 getItemId={(level) => level}
                 triggerLabel={reasoningLabel}
