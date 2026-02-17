@@ -4,6 +4,7 @@ import type { AcpModel } from "tauri-acp";
 import type { ProviderConfig, ReasoningLevel } from "../providers";
 import { REASONING_LEVELS } from "../providers";
 import { Play, Square } from "lucide-react";
+import { getDisplayName } from "../format-model-id";
 import { DropdownSelect } from "./DropdownSelect";
 
 // Hoisted to module level to avoid re-creating array on every render (rerender-memo-with-default-value)
@@ -117,7 +118,7 @@ export function ChatInput({
               items={availableModels}
               selectedId={currentModelId}
               onSelect={(m) => onModelSelect(m.id)}
-              renderLabel={(m) => m.name}
+              renderLabel={(m) => getDisplayName(m)}
               getItemId={(m) => m.id}
               triggerLabel={currentModelName ?? "Default"}
               disabled={!isReady || availableModels.length === 0}

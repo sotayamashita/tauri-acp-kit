@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from "react";
 import type { AcpModel } from "tauri-acp";
 import type { Message, UseAcpChatOptions, UseAcpChatReturn } from "../types";
+import { getDisplayName } from "../format-model-id";
 import { useAcpSession } from "./useAcpSession";
 import { useAgentDownload } from "./useAgentDownload";
 import { useReasoningLevel } from "./useReasoningLevel";
@@ -140,7 +141,8 @@ export function useAcpChat(options: UseAcpChatOptions): UseAcpChatReturn {
   );
 
   const effectiveModelId = baseModelId ?? currentModelId;
-  const currentModelName = displayModels.find((m) => m.id === effectiveModelId)?.name ?? null;
+  const currentModel = displayModels.find((m) => m.id === effectiveModelId);
+  const currentModelName = currentModel ? getDisplayName(currentModel) : null;
 
   return {
     messages,
