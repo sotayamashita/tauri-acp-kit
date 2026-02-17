@@ -43,7 +43,9 @@ export function AcpChat({
     download,
     availableModels,
     currentModelId,
+    currentModelName,
     reasoningLevel,
+    reasoningLevels,
     append,
     stop,
     reset,
@@ -193,6 +195,7 @@ export function AcpChat({
           isLoading={isLoading}
           providerLabel={selectedProvider?.label}
           modelId={currentModelId}
+          modelDisplayName={currentModelName}
           onSuggestClick={handleSuggestClick}
         />
       )}
@@ -215,9 +218,11 @@ export function AcpChat({
         onStop={stop}
         availableModels={availableModels}
         currentModelId={currentModelId}
+        currentModelName={currentModelName}
         onModelSelect={setModel}
         selectedProvider={selectedProvider}
         reasoningLevel={reasoningLevel}
+        reasoningLevels={reasoningLevels}
         onReasoningSelect={setReasoningLevel}
       />
     </div>

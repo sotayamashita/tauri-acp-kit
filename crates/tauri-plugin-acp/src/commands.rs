@@ -292,7 +292,9 @@ pub async fn acp_start_session<R: Runtime>(
 
     let response = send_initialize(&handle).await?;
     if let Some(ref result) = response.result {
-        send_authenticate(&handle, result).await?;
+        if let Err(e) = send_authenticate(&handle, result).await {
+            tracing::warn!(agent_id = %agent_id, "authenticate() failed (non-fatal): {}", e);
+        }
     }
 
     let session_response = send_create_session(&handle, &cwd).await?;
