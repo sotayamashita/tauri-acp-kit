@@ -6,7 +6,7 @@ This ExecPlan is maintained in accordance with `.agents/PLANS.md`.
 
 ## Purpose / Big Picture
 
-After this change, the model dropdown in the chat UI will show provider-supplied human-readable names instead of hand-parsed model IDs. For Claude Code, the dropdown will show names like "Claude Sonnet 4.5" and "Claude Opus 4.6" (as supplied by claude-code-acp via Claude Agent SDK's `displayName`) instead of the current abbreviated "Sonnet 4" and "Opus 4". For Codex, the model dropdown will show deduplicated base model names (e.g., "gpt-5.3-codex") and a separate reasoning level dropdown will let users choose the effort level (e.g., "medium", "high") — matching the Codex CLI's UX pattern. The wire protocol will reconstruct the compound model ID (e.g., "gpt-5.3-codex/medium") from these two selections before sending to codex-acp via `session/set_model`. Additionally, the "Method not implemented" error from claude-code-acp's `authenticate()` call will be caught and handled gracefully instead of surfacing to users.
+After this change, the model dropdown in the chat UI will show provider-supplied human-readable names instead of hand-parsed model IDs. For Claude Code, the dropdown trigger shows the alias name (e.g., "Sonnet", "Haiku", "Default (recommended)") and the expanded dropdown shows both the alias name and the description (e.g., "Sonnet 4.5 · Best for everyday tasks") as secondary text. For Codex, the model dropdown will show deduplicated base model names (e.g., "gpt-5.3-codex") and a separate reasoning level dropdown will let users choose the effort level (e.g., "medium", "high") — matching the Codex CLI's UX pattern. The wire protocol will reconstruct the compound model ID (e.g., "gpt-5.3-codex/medium") from these two selections before sending to codex-acp via `session/set_model`. Additionally, the "Method not implemented" error from claude-code-acp's `authenticate()` call will be caught and handled gracefully instead of surfacing to users.
 
 Verification: Run `pnpm tauri dev`, select each provider, and confirm that model names display correctly and reasoning level selection works independently. Run `pnpm test:run` and `pnpm typecheck` to confirm all tests pass.
 
@@ -25,8 +25,11 @@ Verification: Run `pnpm tauri dev`, select each provider, and confirm that model
 
 ## Surprises & Discoveries
 
-- **claude-code-acp's `name` originates from Claude Agent SDK's `displayName`.** claude-code-acp's `getAvailableModels()` maps `ModelInfo.displayName` (e.g., "Claude Opus 4.6") from SDK's `supportedModels()` to the ACP response `name` field. The SDK itself likely sources this from the Anthropic API `/v1/models` endpoint's `display_name` field. This means **no custom model ID-to-display-name mapping table is needed** — upstream already provides correct display names.
-- **Anthropic API `/v1/models` has a `display_name` field.** Each model object in the `GET /v1/models` response contains `display_name` (e.g., "Claude Opus 4.6"). However, since claude-code-acp already provides this via ACP, the frontend does not need to call the API directly.
+- **Claude Agent SDK returns aliases, NOT full display names.** The plan originally assumed `displayName` would be "Claude Opus 4.6" (matching the Anthropic API's `display_name`). Investigation of the actual SDK source (`@anthropic-ai/claude-agent-sdk@0.2.34`) revealed it returns short aliases: `value: "sonnet"`, `displayName: "Sonnet"`, `description: "Sonnet 4.5 · Best for everyday tasks"`. Similarly: `value: "default"`, `displayName: "Default (recommended)"`. The `displayName` does NOT match the Anthropic API `/v1/models` `display_name` field — it's a UI-friendly alias. This invalidated the plan's core assumption about `model.name` being a rich display name.
+- **`description` field contains version-qualified names.** The SDK's `description` field has structured info: `"Sonnet 4.5 · Best for everyday tasks"`, `"Opus 4.6 · Most capable for complex work"`, `"Haiku 4.5 · Fastest for quick answers"`. For Codex: `"GPT 5.3 Codex with medium reasoning effort"`. The `description` flows through the entire pipeline (SDK → claude-code-acp → Rust backend → TypeScript `AcpModel.description`).
+- **`getDisplayName` fallback approach failed.** An initial fix added `getDisplayName()` that checked if `model.name` had a space to determine if it was a "proper" display name. Since the SDK returns "Sonnet" (no space for some), it fell through to `formatModelId("sonnet")` → "Sonnet" — no improvement. This was reverted.
+- **Stale models on provider switch.** When switching providers (A→B), models from provider A remained visible in the dropdown until B connected. Fixed by clearing `availableModels`, `currentModelId`, `isReady`, and `error` at the start of the `useEffect` in `useAcpSession.ts`.
+- **Anthropic API `/v1/models` has a `display_name` field.** Each model object in the `GET /v1/models` response contains `display_name` (e.g., "Claude Opus 4.6"). However, the Claude Agent SDK does NOT pass this through — it uses its own alias system instead.
 
 ## Decision Log
 
@@ -62,6 +65,14 @@ Verification: Run `pnpm tauri dev`, select each provider, and confirm that model
   Rationale: Both providers already return correct display names in `model.name`. Display simply uses `m.name` directly — no `getModelDisplayName()` function needed. Codex compound ID deduplication is handled entirely within a `useMemo` in `useAcpChat` — no `parseCompoundModels()`, `buildCompoundModelId()`, `ParsedModelInfo`, or new files needed. A template literal `` `${baseId}/${level}` `` is sufficient.
   Date/Author: 2026-02-17
 
+- Decision: Show `model.description` as secondary text in dropdown items for Claude Code only.
+  Rationale: Claude Agent SDK returns short aliases as `displayName` ("Sonnet", "Haiku"), not full names. The `description` field contains version-qualified info ("Sonnet 4.5 · Best for everyday tasks"). Instead of trying to extract or reconstruct rich names, show `model.name` as the primary label and `model.description` as secondary text in dropdown items. This gives users full context without fragile string parsing. The trigger label (selected state) stays as `model.name`. `DropdownSelect.renderLabel` was changed from `string` to `ReactNode` to support the two-line layout.
+  Date/Author: 2026-02-17
+
+- Decision: Revert `getDisplayName` fallback and use description-based approach instead.
+  Rationale: The `getDisplayName` approach assumed upstream `model.name` would sometimes be a rich display name (e.g., "Claude Sonnet 4.5"). Investigation revealed SDK always returns aliases. The fallback heuristic (check for space in name) was unreliable. Reverted to clean baseline and adopted the description-as-secondary-text approach.
+  Date/Author: 2026-02-17
+
 - Decision: Parse initial compound ID as derived state in `useMemo`, not via `useEffect`.
   Rationale: Per Vercel React Best Practices `rerender-derived-state-no-effect` (5.1) rule. `useEffect` + `setState` would cause an extra render cycle (one render with compound ID, then another after splitting). Deriving `baseModelId` and `initialReasoningLevel` inside `useMemo` completes in a single render pass.
   Date/Author: 2026-02-17
@@ -73,6 +84,12 @@ Verification: Run `pnpm tauri dev`, select each provider, and confirm that model
 ## Outcomes & Retrospective
 
 All 4 milestones completed successfully. 145 TypeScript tests pass, 93 Rust tests pass, zero lint errors. Implementation followed the plan closely with one minor addition: non-compound models are preserved in dedup output to avoid breaking providers that return simple IDs alongside compound ones.
+
+**Post-implementation corrections (2026-02-17):**
+
+The plan's core assumption about Claude Agent SDK returning full display names (e.g., "Claude Opus 4.6") was wrong. The SDK returns short aliases ("Opus", "Sonnet", "Haiku", "Default (recommended)"). This was discovered during manual testing after the initial implementation. A `getDisplayName` fallback was attempted but proved unreliable and was reverted. The final approach shows `model.name` (alias) as the trigger label and `model.description` (contains version info) as secondary text in dropdown items for Claude Code only. Additionally, a stale-models-on-provider-switch bug was discovered and fixed by clearing state at the start of the `useAcpSession` effect.
+
+Key lesson: Verify upstream data assumptions with actual SDK source code before finalizing the plan. The investigation chain (DeepWiki → claude-code-acp source → Claude Agent SDK source) revealed the truth only after deep inspection of the installed SDK package.
 
 ## Context and Orientation
 
@@ -345,7 +362,7 @@ Use `gh pr create` with an English title and body.
 
     pnpm tauri dev
 
-    # Claude Code: displays "Claude Opus 4.6", "Claude Sonnet 4.5", etc.
+    # Claude Code: trigger shows "Sonnet", "Opus", etc. Dropdown items show name + description
     # Codex: deduplicated model names + reasoning level dropdown works
     # authenticate error does not block session startup
 
@@ -361,7 +378,7 @@ After all milestones are complete:
 
 Acceptance criteria:
 
-- Claude Code: Model dropdown shows `model.name` (e.g., "Claude Opus 4.6"). Empty chat state shows the same name.
+- Claude Code: Model dropdown trigger shows `model.name` (e.g., "Sonnet", "Opus"). Expanded dropdown shows `model.name` + `model.description` as two-line items. Empty chat state shows `model.name`.
 - Codex: Model dropdown shows deduplicated base models. Reasoning level dropdown works.
 - `authenticate` error does not block session startup.
 
@@ -378,23 +395,27 @@ Recovery: `git checkout -- <file>` to restore individual files.
 
 ## Artifacts and Notes
 
-### Current Display vs Proposed Display
+### Current Display vs Final Display
 
     Claude Code models:
-      Current:  formatModelId("claude-sonnet-4-5-20250929") -> "Sonnet 4.5"
-      Proposed: model.name = "Claude Sonnet 4.5"            -> "Claude Sonnet 4.5"
+      Trigger (selected):
+        "Default (recommended)" / "Sonnet" / "Opus" / "Haiku"  (= model.name, alias from SDK)
 
-      Current:  formatModelId("claude-opus-4-6")            -> "Opus 4.6"
-      Proposed: model.name = "Claude Opus 4.6"              -> "Claude Opus 4.6"
+      Dropdown items (expanded):
+        "Default (recommended)"                                  <- model.name (bold)
+        "Use the default model (currently Sonnet 4.5) · ..."     <- model.description (secondary)
 
-      Current:  formatModelId("claude-haiku-4-5-20251001")  -> "Haiku 4.5"
-      Proposed: model.name = "Claude Haiku 4.5"             -> "Claude Haiku 4.5"
+        "Sonnet"                                                  <- model.name (bold)
+        "Sonnet 4.5 · Best for everyday tasks"                   <- model.description (secondary)
 
-      Current:  formatModelId("default")                    -> "Default"
-      Proposed: model.name = "default" (equals id)          -> "Default" (fallback)
+        "Opus"                                                    <- model.name (bold)
+        "Opus 4.6 · Most capable for complex work"               <- model.description (secondary)
 
-    Note: display_name is automatically provided via Claude Agent SDK -> claude-code-acp.
-      No custom mapping updates needed when new models are added.
+        "Haiku"                                                   <- model.name (bold)
+        "Haiku 4.5 · Fastest for quick answers"                  <- model.description (secondary)
+
+    Note: SDK returns aliases as displayName, NOT full API display_name.
+      description field provides version-qualified names as secondary text.
 
     Codex models:
       Current:  Model dropdown shows "Gpt 5.3 Codex/medium", "Gpt 5.3 Codex/high", etc. (18 entries)
@@ -424,8 +445,8 @@ Recovery: `git checkout -- <file>` to restore individual files.
 The following items are intentionally deferred or excluded:
 
 1. **`session/setConfigOption` support**: codex-acp does not currently implement this method. If codex-acp adds support in the future, implementing it in our Rust backend + TypeScript SDK would allow cleaner model/reasoning separation.
-2. **DropdownSelect two-line items (showing both name and ID)**: UX enhancement for power users. Not needed for v1.
-3. **Description tooltips on dropdown items**: Minor UX enhancement using `AcpModel.description`. Can be added independently.
+2. ~~**DropdownSelect two-line items (showing both name and ID)**~~: Implemented — dropdown now shows `model.name` + `model.description` as two-line items for Claude Code. `renderLabel` changed from `string` to `ReactNode`.
+3. ~~**Description tooltips on dropdown items**~~: Superseded by inline description display in dropdown items.
 4. **Dynamic `supportsReasoningLevel` detection**: Kept hardcoded in `providers.ts` per user decision.
 5. **Custom model ID-to-display-name mapping table**: Not needed. Use `model.name` directly.
 6. **Dedicated utility functions/files**: `getModelDisplayName()`, `parseCompoundModels()`, `buildCompoundModelId()`, etc. are not created. Inline processing is sufficient.
@@ -436,10 +457,13 @@ The following items are intentionally deferred or excluded:
 
 ### TypeScript files changed
 
-- `src/features/acp-chat/components/ChatInput.tsx` — use `m.name` for `renderLabel`, `currentModelName` for `triggerLabel`
+- `src/features/acp-chat/components/ChatInput.tsx` — `renderLabel` shows `model.name` + `model.description` two-line for Claude Code, `currentModelName` for `triggerLabel`
 - `src/features/acp-chat/components/ChatMessageList.tsx` — add `modelDisplayName` prop
 - `src/features/acp-chat/components/AcpChat.tsx` — pass `currentModelName` to ChatInput and ChatMessageList
+- `src/features/acp-chat/components/DropdownSelect.tsx` — `renderLabel` return type changed from `string` to `ReactNode`
+- `src/features/acp-chat/components/AcpChat.css` — added `.acp-chat-model-option` styles, dropdown `width: max-content`
 - `src/features/acp-chat/hooks/useAcpChat.ts` — `useMemo` for compound ID deduplication + derived state parse, add `currentModelName` to return
+- `src/features/acp-chat/hooks/useAcpSession.ts` — clear stale state at start of effect on provider switch
 - `src/features/acp-chat/hooks/useAcpChat.test.ts` — add/update tests
 
 ### Rust files changed
@@ -528,44 +552,47 @@ claude-code-acp calls `getAvailableModels()` within `createSession()`, convertin
       "models": {
         "availableModels": [
           {
-            "modelId": "claude-sonnet-4-5-20250929",
-            "name": "Claude Sonnet 4.5",
-            "description": "Fast and efficient"
+            "modelId": "default",
+            "name": "Default (recommended)",
+            "description": "Use the default model (currently Sonnet 4.5) · Great balance of speed and capability"
           },
           {
-            "modelId": "claude-opus-4-6",
-            "name": "Claude Opus 4.6",
-            "description": "Most capable"
+            "modelId": "opus",
+            "name": "Opus",
+            "description": "Opus 4.6 · Most capable for complex work"
           },
           {
-            "modelId": "claude-haiku-4-5-20251001",
-            "name": "Claude Haiku 4.5",
-            "description": "Fastest responses"
+            "modelId": "sonnet",
+            "name": "Sonnet",
+            "description": "Sonnet 4.5 · Best for everyday tasks"
+          },
+          {
+            "modelId": "haiku",
+            "name": "Haiku",
+            "description": "Haiku 4.5 · Fastest for quick answers"
           }
         ],
-        "currentModelId": "claude-opus-4-6"
+        "currentModelId": "sonnet"
       }
     }
 
 Field names are **camelCase** (`modelId`, `availableModels`, `currentModelId`).
 
-`ModelInfo`'s `value` field maps to `modelId`, and `displayName` maps to `name`. `displayName` comes from Claude Agent SDK's `supportedModels()` method, which matches the Anthropic API `/v1/models` endpoint's `display_name` field. Model IDs are full Claude API identifiers (date suffix or alias format).
+`ModelInfo`'s `value` field maps to `modelId`, and `displayName` maps to `name`. **IMPORTANT:** The SDK's `displayName` returns short aliases ("Sonnet", "Opus"), NOT the Anthropic API's `display_name` ("Claude Sonnet 4.5"). The `description` field contains version-qualified names (e.g., "Sonnet 4.5 · Best for everyday tasks"). Model IDs are short aliases ("sonnet", "opus", "haiku", "default"), not full API identifiers.
 
-#### A3.1.1 displayName Source Chain
+#### A3.1.1 displayName Source Chain (CORRECTED)
 
-    Anthropic API: GET /v1/models -> { "id": "claude-opus-4-6", "display_name": "Claude Opus 4.6" }
+    Claude Agent SDK: supportedModels() -> ModelInfo { value: "opus", displayName: "Opus", description: "Opus 4.6 · Most capable for complex work" }
                             |
-    Claude Agent SDK: supportedModels() -> ModelInfo { value: "claude-opus-4-6", displayName: "Claude Opus 4.6" }
+    claude-code-acp: getAvailableModels() -> { modelId: model.value, name: model.displayName, description: model.description }
                             |
-    claude-code-acp: getAvailableModels() -> { modelId: model.value, name: model.displayName }
+    ACP wire: session/new response -> { "modelId": "opus", "name": "Opus", "description": "Opus 4.6 · ..." }
                             |
-    ACP wire: session/new response -> { "modelId": "claude-opus-4-6", "name": "Claude Opus 4.6" }
+    Rust backend: parse_available_models() -> AcpModelInfo { id: "opus", name: "Opus", description: Some("Opus 4.6 · ...") }
                             |
-    Rust backend: parse_available_models() -> AcpModelInfo { id, name, description }
-                            |
-    Frontend: AcpModel { id: "claude-opus-4-6", name: "Claude Opus 4.6" }
+    Frontend: AcpModel { id: "opus", name: "Opus", description: "Opus 4.6 · Most capable for complex work" }
 
-No information is lost throughout this chain. The frontend can display `model.name` directly to get the correct display name.
+Note: The SDK does NOT pass through the Anthropic API's `display_name` ("Claude Opus 4.6"). It uses its own alias system. The `description` field is the richest source of display information. The frontend shows `model.name` as the trigger label and `model.description` as secondary text in dropdown items.
 
 #### A3.2 Reasoning Levels
 
@@ -620,11 +647,11 @@ Both codex-acp and claude-code-acp use the `@agentclientprotocol/sdk` `SetSessio
                                   |
     [Backend] session/set_model { modelId: "gpt-5.3-codex/medium/medium" }  ->  codex-acp parse error or wrong model
 
-    [Backend] AcpModel { id: "claude-opus-4-6", name: "Claude Opus 4.6" }
+    [Backend] AcpModel { id: "opus", name: "Opus", description: "Opus 4.6 · Most capable..." }
                                   |
-    [ChatInput]   formatModelId("claude-opus-4-6")  ->  "Opus 4.6" (ignores name, missing "Claude" prefix)
+    [ChatInput]   formatModelId("opus")  ->  "Opus" (ignores description, no version info shown)
                                   |
-    [setModel]    getWireModelId("claude-opus-4-6")  ->  "claude-opus-4-6" (send is fine)
+    [setModel]    getWireModelId("opus")  ->  "opus" (send is fine)
 
 #### A5.2 Proposed Flow
 
@@ -653,16 +680,17 @@ Both codex-acp and claude-code-acp use the `@agentclientprotocol/sdk` `SetSessio
                                   |
     [Backend] session/set_model { modelId: "gpt-5.3-codex/high" }
 
-**Claude Code (no changes):**
+**Claude Code (description as secondary text):**
 
-    [Backend] AcpModel { id: "claude-opus-4-6", name: "Claude Opus 4.6" }
-               Note: name originates from Claude Agent SDK displayName (matches Anthropic API display_name)
+    [Backend] AcpModel { id: "opus", name: "Opus", description: "Opus 4.6 · Most capable for complex work" }
+               Note: name is SDK alias, NOT Anthropic API display_name
                                   |
-    [ChatInput]   m.name  ->  "Claude Opus 4.6" (used directly)
+    [ChatInput trigger]   model.name  ->  "Opus" (selected state)
+    [ChatInput dropdown]  model.name + model.description  ->  "Opus" + "Opus 4.6 · Most capable..." (two-line item)
                                   |
-    [setModel]    sends model.id as-is  ->  "claude-opus-4-6"
+    [setModel]    sends model.id as-is  ->  "opus"
                                   |
-    [Backend] session/set_model { modelId: "claude-opus-4-6" }
+    [Backend] session/set_model { modelId: "opus" }
 
 ### A6. Resolved Questions
 
@@ -685,3 +713,4 @@ Plan Revision Note:
 - 2026-02-17: Major simplification from complexity review. (1) Removed `getModelDisplayName()` -> use `m.name` inline. (2) Removed `parseCompoundModels()` / `buildCompoundModelId()` / `ParsedModelInfo` / `compoundModels.ts` -> absorbed into `useMemo` in `useAcpChat`. (3) Removed IIFE `currentModelLabel` -> one-liner with `?.name ?? formatModelId()`. (4) New files 2->0, new interfaces 1->0, new exported functions 3->0. Tests simplified to additions in `useAcpChat.test.ts` only.
 - 2026-02-17: Two improvements from Vercel React Best Practices review. (1) `rerender-derived-state-no-effect` (5.1): Changed Step 2.2's initial compound ID parsing from `useEffect` + `setState` to derived state in `useMemo`. Avoids extra render cycle. (2) `js-index-maps`: Eliminated duplicate `availableModels.find()` — `useAcpChat` now returns `currentModelName`, removing the need for identical lookups in `ChatInput` and `AcpChat`. Renumbered Milestone 1 steps. Added 2 Decision Log entries.
 - 2026-02-17: Translated entire plan to English. Added Workflow section: create topic branch `feature/model-display-improvement`, use `tdd-workflow` skill for implementation, create PR with `gh pr create` in English.
+- 2026-02-17: **Critical correction** — Claude Agent SDK returns aliases ("Sonnet", "Opus"), NOT full display names ("Claude Sonnet 4.5"). Investigation of actual SDK source (`@anthropic-ai/claude-agent-sdk@0.2.34`) revealed `displayName` is a UI alias, not the Anthropic API `display_name`. Corrected A3.1 sample JSON (model IDs are "sonnet"/"opus"/"haiku"/"default", not full API IDs), A3.1.1 source chain, A5.1/A5.2 data flows, display examples, and acceptance criteria. Reverted `getDisplayName` fallback (wrong assumption). Adopted description-as-secondary-text approach: dropdown items show `model.name` (bold) + `model.description` (secondary) for Claude Code. `DropdownSelect.renderLabel` changed from `string` to `ReactNode`. Added stale-models-on-provider-switch fix to `useAcpSession.ts`. Added `width: max-content` to dropdown menu CSS.
