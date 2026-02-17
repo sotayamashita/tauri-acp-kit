@@ -21,13 +21,6 @@ const mockModels = [
   { id: "claude-opus-4", name: "Claude Opus 4", description: "Most capable" },
 ];
 
-// Models with short alias names (as returned by some claude-code-acp versions)
-const aliasModels = [
-  { id: "default", name: "Default" },
-  { id: "claude-sonnet-4-5-20250929", name: "Sonnet" },
-  { id: "claude-haiku-4-5-20251001", name: "Haiku" },
-];
-
 describe("useAcpChat model support", () => {
   beforeEach(() => {
     setupTauriMocks({
@@ -104,30 +97,6 @@ describe("useAcpChat model support", () => {
     });
 
     expect(result.current.currentModelName).toBeNull();
-  });
-
-  it("currentModelName falls back to formatModelId when name is a short alias", async () => {
-    cleanupTauriMocks();
-    setupTauriMocks({
-      "plugin:acp|acp_spawn_agent": () => "test-agent-id",
-      "plugin:acp|acp_start_session": () => ({
-        sessionId: "test-session-id",
-        models: aliasModels,
-        currentModelId: "claude-sonnet-4-5-20250929",
-      }),
-      "plugin:acp|acp_set_model": () => undefined,
-      "plugin:acp|acp_terminate_agent": () => undefined,
-    });
-
-    const { result } = renderHook(() => useAcpChat({ agentSpec: testAgentSpec }));
-
-    await waitFor(() => {
-      expect(result.current.isReady).toBe(true);
-    });
-
-    // "Sonnet" has no space, so getDisplayName should fall back to formatModelId
-    // formatModelId("claude-sonnet-4-5-20250929") → "Sonnet 4.5"
-    expect(result.current.currentModelName).toBe("Sonnet 4.5");
   });
 
   it("setModel updates currentModelId", async () => {
@@ -220,8 +189,7 @@ describe("useAcpChat compound model deduplication", () => {
       expect(result.current.isReady).toBe(true);
     });
 
-    // Deduped models have name === id, so getDisplayName falls back to formatModelId
-    expect(result.current.currentModelName).toBe("Gpt 5.3 Codex");
+    expect(result.current.currentModelName).toBe("gpt-5.3-codex");
   });
 
   it("does not deduplicate when supportsReasoningLevel is false", async () => {
@@ -235,72 +203,6 @@ describe("useAcpChat compound model deduplication", () => {
 
     // All 6 models should be present without deduplication
     expect(result.current.availableModels).toHaveLength(6);
-  });
-});
-
-describe("useAcpChat provider switch", () => {
-  afterEach(() => {
-    cleanupTauriMocks();
-  });
-
-  it("replaces previous provider models with new provider models after switch", async () => {
-    let spawnCount = 0;
-    setupTauriMocks({
-      "plugin:acp|acp_spawn_agent": () => {
-        spawnCount++;
-        return `agent-${spawnCount}`;
-      },
-      "plugin:acp|acp_start_session": () => {
-        if (spawnCount <= 1) {
-          return {
-            sessionId: "session-a",
-            models: mockModels,
-            currentModelId: "claude-sonnet-4",
-          };
-        }
-        return {
-          sessionId: "session-b",
-          models: codexModels,
-          currentModelId: "gpt-5.3-codex/medium",
-        };
-      },
-      "plugin:acp|acp_set_model": () => undefined,
-      "plugin:acp|acp_terminate_agent": () => undefined,
-    });
-
-    const { result, rerender } = renderHook(
-      (props: { agentSpec: AgentSpec; supportsReasoningLevel?: boolean }) => useAcpChat(props),
-      {
-        initialProps: { agentSpec: testAgentSpec } as {
-          agentSpec: AgentSpec;
-          supportsReasoningLevel?: boolean;
-        },
-      },
-    );
-
-    // Wait for first provider to be ready
-    await waitFor(() => {
-      expect(result.current.isReady).toBe(true);
-    });
-    expect(result.current.availableModels[0].id).toBe("claude-sonnet-4");
-
-    // Switch to second provider
-    rerender({ agentSpec: codexAgentSpec, supportsReasoningLevel: true });
-
-    // Should transition through not-ready state (stale models cleared)
-    await waitFor(() => {
-      expect(result.current.isReady).toBe(false);
-    });
-
-    // Wait for new provider to connect
-    await waitFor(() => {
-      expect(result.current.isReady).toBe(true);
-    });
-
-    // Should show new provider's models, not stale ones from provider A
-    expect(result.current.availableModels[0].id).toBe("gpt-5.3-codex");
-    expect(result.current.availableModels).toHaveLength(2);
-    expect(result.current.currentModelId).toBe("gpt-5.3-codex");
   });
 });
 

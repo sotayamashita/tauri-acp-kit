@@ -1,16 +1,4 @@
 /**
- * Pick the best display name for a model.
- * Uses model.name when it's a proper display name (multi-word),
- * otherwise falls back to formatModelId(model.id).
- */
-export function getDisplayName(model: { id: string; name: string }): string {
-  if (model.name !== model.id && model.name.includes(" ")) {
-    return model.name;
-  }
-  return formatModelId(model.id);
-}
-
-/**
  * Format a model ID into a human-readable display name.
  *
  * Examples:
