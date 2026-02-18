@@ -38,6 +38,10 @@ In short: CODE_QUALITY.md is the textbook. AI_CODE_REVIEW.md is the manual for h
 
 - Observation: The initial instinct was to place the skill at the global `~/.claude/skills/` directory (where all other installed skills live). The user corrected this — project-specific skills belong under the project's `.claude/skills/` directory. This distinction matters: global skills are user-wide tools, project skills are project-specific diagnostics tied to the project's quality framework.
 
+- Observation: Skill name collision between global and project-level. When the skill was first created at `~/.claude/skills/code-health-check/` (with template SKILL.md), then recreated at `.claude/skills/code-health-check/` (with real SKILL.md), the `Skill` tool loaded the global template instead of the project-level implementation. The global copy must be fully deleted before invoking the project-level skill. Claude Code resolves skill names globally first, so a stale global copy shadows the project-level skill.
+
+- Observation: ChatInput.tsx validation confirmed the skill workflow works. The 14 props (critical threshold) were correctly identified. The AI evaluation produced meaningful distinctions — beacon quality was strong (names are good), convention adherence was high (standard React patterns), but local comprehensibility was only moderate (magic string `"claude-code-acp"` and opaque imported types). The overcomplication check correctly distinguished between "the code is overcomplicated" and "the component has too many responsibilities" — the code itself is lean, the problem is the 14-prop interface.
+
 ## Decision Log
 
 - Decision: Bundle CODE_QUALITY.md principles as references rather than requiring the file to exist in the target project.
@@ -63,7 +67,7 @@ Skill created and validated successfully. Structure:
         ├── metrics.md        — 9 measurable metrics with thresholds by dimension
         └── ai-evaluation.md  — 10 AI judgment criteria as specific questions + overcomplication detection
 
-Validation pending: invoke the skill on known problem files (ChatInput.tsx, useAcpSession.ts, AcpChat.tsx) to verify it identifies known issues.
+Validation result: invoked the skill on ChatInput.tsx (known 14 props). The skill correctly identified the critical parameter count violation, produced a structured health report with metrics and AI evaluation, and used CODE_QUALITY.md vocabulary throughout. The overcomplication check added nuance — distinguishing "lean code with too many responsibilities" from "overcomplicated code." Remaining validation: useAcpSession.ts (11 mutable items) and AcpChat.tsx (God Component) not yet tested.
 
 ## Context and Orientation
 
