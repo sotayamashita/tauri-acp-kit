@@ -23,7 +23,7 @@ The user can verify success by running `pnpm test:coverage` and observing: (1) a
 - [x] (2026-02-18) Milestone 7: Add tests for `useTheme.ts` (6 tests).
 - [x] (2026-02-18) Milestone 8: Add tests for `useAcpEventListeners.ts` (8 tests).
 - [x] (2026-02-18) Final: Run `pnpm test:coverage`, verify all pass (209 tests, 27 files), review coverage report.
-- [ ] Push branch and create PR with `gh pr create`.
+- [x] (2026-02-18) Push branch and create PR with `gh pr create`.
 
 ## Surprises & Discoveries
 
