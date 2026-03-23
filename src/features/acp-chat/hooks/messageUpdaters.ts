@@ -1,6 +1,5 @@
 import type { ContentBlock, Message, ToolCallStatus } from "../types";
 
-/** Map ACP wire status strings to UI-facing ToolCallStatus. */
 export function mapAcpStatus(status: string): ToolCallStatus {
   if (status === "completed") return "completed";
   if (status === "failed") return "failed";

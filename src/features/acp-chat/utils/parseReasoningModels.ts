@@ -34,9 +34,9 @@ export function parseReasoningModels(
   const dedup: AcpModel[] = [...nonCompound, ...[...map.keys()].map((id) => ({ id, name: id }))];
 
   let base = currentModelId;
-  if (currentModelId?.includes("/")) {
-    const slash = currentModelId.indexOf("/");
-    base = currentModelId.substring(0, slash);
+  const slash = currentModelId?.indexOf("/") ?? -1;
+  if (slash !== -1) {
+    base = currentModelId!.substring(0, slash);
   }
 
   return { displayModels: dedup, reasoningLevelsMap: map, baseModelId: base };
