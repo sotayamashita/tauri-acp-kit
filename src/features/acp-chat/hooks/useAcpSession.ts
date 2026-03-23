@@ -21,8 +21,6 @@ export interface UseAcpSessionReturn {
   retry: () => void;
   setError: React.Dispatch<React.SetStateAction<Error | null>>;
   setCurrentModelId: React.Dispatch<React.SetStateAction<string | null>>;
-  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
-  setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
   streamingContentRef: React.MutableRefObject<string>;
 }
 
@@ -146,8 +144,6 @@ export function useAcpSession(
     retry,
     setError,
     setCurrentModelId,
-    setMessages,
-    setIsLoading,
     streamingContentRef,
   };
 }
