@@ -1,16 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
 import { safeGetItem, safeSetItem } from "../utils/storage";
+import { THEME_STORAGE_KEY } from "../utils/storageKeys";
 
 type Theme = "light" | "dark";
-
-const STORAGE_KEY = "acp-theme";
 
 function getSystemTheme(): Theme {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
 function getStoredTheme(): Theme | null {
-  const stored = safeGetItem(STORAGE_KEY);
+  const stored = safeGetItem(THEME_STORAGE_KEY);
   return stored === "light" || stored === "dark" ? stored : null;
 }
 
@@ -20,7 +19,7 @@ export function useTheme() {
   const toggleTheme = useCallback(() => {
     setThemeState((prev) => {
       const next = prev === "light" ? "dark" : "light";
-      safeSetItem(STORAGE_KEY, next);
+      safeSetItem(THEME_STORAGE_KEY, next);
       return next;
     });
   }, []);

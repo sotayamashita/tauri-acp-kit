@@ -1,4 +1,12 @@
-import type { ContentBlock, Message } from "../types";
+import type { ContentBlock, Message, ToolCallStatus } from "../types";
+
+/** Map ACP wire status strings to UI-facing ToolCallStatus. */
+export function mapAcpStatus(status: string): ToolCallStatus {
+  if (status === "completed") return "completed";
+  if (status === "failed") return "failed";
+  if (status === "in_progress") return "running";
+  return "pending";
+}
 
 /** Append (or replace) the text block on the last assistant message. */
 export function appendTextToLastAssistant(messages: Message[], text: string): Message[] {
@@ -42,7 +50,7 @@ export function appendToolCallToLastAssistant(
     toolCallId,
     title: toolName,
     kind: "unknown",
-    status: status === "in_progress" ? "running" : "pending",
+    status: mapAcpStatus(status),
   };
   return [...messages.slice(0, -1), { ...last, blocks: [...last.blocks, block] }];
 }
@@ -56,17 +64,10 @@ export function updateToolCallStatus(
   const last = messages[messages.length - 1];
   if (last?.role !== "assistant") return messages;
 
-  const mappedStatus =
-    newStatus === "completed"
-      ? "completed"
-      : newStatus === "failed"
-        ? "failed"
-        : newStatus === "in_progress"
-          ? "running"
-          : undefined;
+  const mappedStatus = mapAcpStatus(newStatus);
 
   const blocks = last.blocks.map((b) => {
-    if (b.type === "tool_call" && b.toolCallId === toolCallId && mappedStatus) {
+    if (b.type === "tool_call" && b.toolCallId === toolCallId) {
       return { ...b, status: mappedStatus } as ContentBlock;
     }
     return b;

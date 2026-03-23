@@ -6,6 +6,7 @@ import {
   appendToolCallToLastAssistant,
   updateToolCallStatus,
   updateOrAppendPlan,
+  mapAcpStatus,
 } from "./messageUpdaters";
 
 function makeAssistantMessage(blocks: Message["blocks"] = []): Message {
@@ -126,6 +127,24 @@ describe("messageUpdaters", () => {
       ];
       const result = updateToolCallStatus(messages, "tc-1", "completed");
       expect(result[0].blocks[1]).toMatchObject({ toolCallId: "tc-2", status: "pending" });
+    });
+  });
+
+  describe("mapAcpStatus", () => {
+    it("maps completed to completed", () => {
+      expect(mapAcpStatus("completed")).toBe("completed");
+    });
+
+    it("maps failed to failed", () => {
+      expect(mapAcpStatus("failed")).toBe("failed");
+    });
+
+    it("maps in_progress to running", () => {
+      expect(mapAcpStatus("in_progress")).toBe("running");
+    });
+
+    it("returns pending for unknown status", () => {
+      expect(mapAcpStatus("queued")).toBe("pending");
     });
   });
 

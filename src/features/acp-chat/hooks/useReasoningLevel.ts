@@ -1,9 +1,10 @@
 import { useState, useCallback, useRef } from "react";
 import { REASONING_LEVELS, type ReasoningLevel } from "../providers";
 import { safeGetItem, safeSetItem } from "../utils/storage";
+import { reasoningLevelKey } from "../utils/storageKeys";
 
 function loadReasoningLevel(agentId: string): ReasoningLevel | null {
-  const stored = safeGetItem(`acp-reasoning-level:${agentId}`);
+  const stored = safeGetItem(reasoningLevelKey(agentId));
   if (stored && (REASONING_LEVELS as readonly string[]).includes(stored)) {
     return stored as ReasoningLevel;
   }
@@ -33,7 +34,7 @@ export function useReasoningLevel(options: UseReasoningLevelOptions): UseReasoni
   const setReasoningLevel = useCallback(
     (level: ReasoningLevel) => {
       setReasoningLevelState(level);
-      safeSetItem(`acp-reasoning-level:${options.agentId}`, level);
+      safeSetItem(reasoningLevelKey(options.agentId), level);
     },
     [options.agentId],
   );

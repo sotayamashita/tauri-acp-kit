@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
-import type { AcpModel } from "tauri-acp";
 import type { Message, UseAcpChatOptions, UseAcpChatReturn } from "../types";
+import { parseReasoningModels } from "../utils/parseReasoningModels";
 import { useAcpSession } from "./useAcpSession";
 import { useAgentDownload } from "./useAgentDownload";
 import { useReasoningLevel } from "./useReasoningLevel";
@@ -42,35 +42,10 @@ export function useAcpChat(options: UseAcpChatOptions): UseAcpChatReturn {
     supportsReasoningLevel: options.supportsReasoningLevel,
   });
 
-  const { displayModels, reasoningLevelsMap, baseModelId } = useMemo(() => {
-    if (!options.supportsReasoningLevel) {
-      return {
-        displayModels: availableModels,
-        reasoningLevelsMap: null,
-        baseModelId: currentModelId,
-      };
-    }
-    const map = new Map<string, string[]>();
-    const nonCompound: AcpModel[] = [];
-    for (const m of availableModels) {
-      const slash = m.id.indexOf("/");
-      if (slash === -1) {
-        nonCompound.push(m);
-        continue;
-      }
-      const base = m.id.substring(0, slash);
-      const level = m.id.substring(slash + 1);
-      if (!map.has(base)) map.set(base, []);
-      map.get(base)!.push(level);
-    }
-    const dedup: AcpModel[] = [...nonCompound, ...[...map.keys()].map((id) => ({ id, name: id }))];
-    let base = currentModelId;
-    if (currentModelId?.includes("/")) {
-      const slash = currentModelId.indexOf("/");
-      base = currentModelId.substring(0, slash);
-    }
-    return { displayModels: dedup, reasoningLevelsMap: map, baseModelId: base };
-  }, [availableModels, currentModelId, options.supportsReasoningLevel]);
+  const { displayModels, reasoningLevelsMap, baseModelId } = useMemo(
+    () => parseReasoningModels(availableModels, currentModelId, options.supportsReasoningLevel),
+    [availableModels, currentModelId, options.supportsReasoningLevel],
+  );
 
   const append = useCallback(
     async (content: string) => {
