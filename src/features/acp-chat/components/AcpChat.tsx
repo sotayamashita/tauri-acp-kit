@@ -5,11 +5,14 @@ import { useClickOutside } from "../hooks/useClickOutside";
 import { deriveConnectionStatus } from "../utils/connectionStatus";
 import { ChatMessageList } from "./ChatMessageList";
 import { ChatInput } from "./ChatInput";
+import { StatusBar } from "./StatusBar";
+import { ProviderDropdown } from "./ProviderDropdown";
+import { ErrorBanner } from "./ErrorBanner";
 import type { AgentSpec } from "tauri-acp";
 import type { ProviderConfig } from "../providers";
 import { AgentSetupStatus } from "./AgentSetupStatus";
 import { DownloadProgress } from "./DownloadProgress";
-import { Plus, AlertCircle, Sun, Moon, RotateCcw } from "lucide-react";
+import { RotateCcw, Sun, Moon } from "lucide-react";
 import "./AcpChat.css";
 
 interface AcpChatProps {
@@ -63,7 +66,6 @@ export function AcpChat({
   const closeProviderDropdown = useCallback(() => setProviderOpen(false), []);
   useClickOutside(providerRef, closeProviderDropdown, providerOpen);
 
-  // Cmd+Shift+N (macOS) / Ctrl+Shift+N (other) → new chat
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.shiftKey && (e.metaKey || e.ctrlKey) && e.key === "N") {
@@ -83,37 +85,22 @@ export function AcpChat({
     isLoading,
   });
 
-  const handleSuggestClick = useCallback(
-    (text: string) => {
-      setInput(text);
+  const handleSuggestClick = useCallback((text: string) => setInput(text), [setInput]);
+
+  const handleProviderSelect = useCallback(
+    (providerId: string) => {
+      onProviderChange?.(providerId);
+      setProviderOpen(false);
     },
-    [setInput],
+    [onProviderChange],
   );
 
   return (
     <div className="acp-chat" data-theme={theme}>
-      {/* Header */}
       <header className="acp-chat-header">
         <div className="acp-chat-header-left">
           <span className="acp-chat-header-title">{selectedProvider?.label || "Chat"}</span>
-          <span className={`acp-chat-status ${connectionStatus}`} role="status" aria-live="polite">
-            {connectionStatus === "downloading" ? (
-              "Downloading…"
-            ) : connectionStatus === "connecting" ? (
-              "Connecting…"
-            ) : connectionStatus === "generating" ? (
-              "Generating…"
-            ) : connectionStatus === "error" ? (
-              <>
-                <span className="acp-chat-status-dot error" aria-hidden="true" />
-                Disconnected
-              </>
-            ) : (
-              <>
-                <span className="acp-chat-status-dot ready" aria-hidden="true" />
-              </>
-            )}
-          </span>
+          <StatusBar connectionStatus={connectionStatus} />
         </div>
         <div className="acp-chat-header-right">
           <button
@@ -136,38 +123,17 @@ export function AcpChat({
             {theme === "light" ? <Moon size={14} /> : <Sun size={14} />}
           </button>
           <div className="acp-chat-dropdown-wrapper" ref={providerRef}>
-            <button
-              type="button"
-              onClick={() => setProviderOpen(!providerOpen)}
-              className="acp-chat-header-btn"
-              title="Switch provider"
-            >
-              <Plus size={16} />
-            </button>
-            {providerOpen && providers && (
-              <div className="acp-chat-dropdown-menu acp-chat-provider-dropdown" role="listbox">
-                {providers.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    role="option"
-                    aria-selected={p.id === selectedProviderId}
-                    className={`acp-chat-dropdown-item ${p.id === selectedProviderId ? "selected" : ""}`}
-                    onClick={() => {
-                      onProviderChange?.(p.id);
-                      setProviderOpen(false);
-                    }}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-            )}
+            <ProviderDropdown
+              providers={providers ?? []}
+              selectedProviderId={selectedProviderId}
+              isOpen={providerOpen}
+              onToggle={() => setProviderOpen(!providerOpen)}
+              onSelect={handleProviderSelect}
+            />
           </div>
         </div>
       </header>
 
-      {/* Download Progress */}
       {isDownloading && downloadProgress && (
         <DownloadProgress
           progress={downloadProgress}
@@ -175,7 +141,6 @@ export function AcpChat({
         />
       )}
 
-      {/* Setup Status (when agent binary is missing) */}
       {spawnFailed && !isDownloading && (
         <AgentSetupStatus
           agentId={agentSpec.id}
@@ -187,7 +152,6 @@ export function AcpChat({
         />
       )}
 
-      {/* Message Area */}
       {!spawnFailed && !isDownloading && (
         <ChatMessageList
           messages={messages}
@@ -200,15 +164,8 @@ export function AcpChat({
         />
       )}
 
-      {/* Error */}
-      {error && (
-        <div className="acp-chat-error">
-          <AlertCircle size={14} />
-          <span>{error.message}</span>
-        </div>
-      )}
+      <ErrorBanner error={error} />
 
-      {/* Input Area */}
       <ChatInput
         input={input}
         setInput={setInput}

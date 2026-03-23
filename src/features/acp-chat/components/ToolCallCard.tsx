@@ -6,7 +6,6 @@ interface ToolCallCardProps {
   toolCallId: string;
   title: string;
   status: ToolCallStatus;
-  input?: string;
   output?: string;
 }
 

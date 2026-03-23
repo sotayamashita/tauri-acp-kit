@@ -20,7 +20,6 @@ export function ContentBlockRenderer({ block }: ContentBlockRendererProps) {
           toolCallId={block.toolCallId}
           title={block.title}
           status={block.status}
-          input={block.input}
           output={block.output}
         />
       );

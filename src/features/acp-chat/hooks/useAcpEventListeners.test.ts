@@ -206,6 +206,58 @@ describe("useAcpEventListeners", () => {
     expect(args.setIsLoading).toHaveBeenCalledWith(false);
   });
 
+  it("cleanup calls all unlisteners even when unmounted before setup completes", async () => {
+    // Create a session where listener registration is delayed
+    const unlistenFns = Array.from({ length: 7 }, () => vi.fn());
+    let resolvers: Array<() => void> = [];
+    const delayedSession = {
+      onDelta: vi.fn(() => new Promise<() => void>((r) => resolvers.push(() => r(unlistenFns[0])))),
+      onThoughtDelta: vi.fn(
+        () => new Promise<() => void>((r) => resolvers.push(() => r(unlistenFns[1]))),
+      ),
+      onToolCall: vi.fn(
+        () => new Promise<() => void>((r) => resolvers.push(() => r(unlistenFns[2]))),
+      ),
+      onToolCallUpdate: vi.fn(
+        () => new Promise<() => void>((r) => resolvers.push(() => r(unlistenFns[3]))),
+      ),
+      onPlanUpdate: vi.fn(
+        () => new Promise<() => void>((r) => resolvers.push(() => r(unlistenFns[4]))),
+      ),
+      onComplete: vi.fn(
+        () => new Promise<() => void>((r) => resolvers.push(() => r(unlistenFns[5]))),
+      ),
+      onError: vi.fn(() => new Promise<() => void>((r) => resolvers.push(() => r(unlistenFns[6])))),
+    };
+    const args = createRenderArgs(
+      delayedSession as unknown as ReturnType<typeof createMockSession>,
+    );
+
+    const { unmount } = renderHook(() =>
+      useAcpEventListeners(
+        args.session,
+        args.setMessages,
+        args.setIsLoading,
+        args.setError,
+        args.streamingContentRef,
+        args.streamingThoughtRef,
+      ),
+    );
+
+    // Unmount immediately BEFORE any promises resolve
+    unmount();
+
+    // Now resolve all the listener registrations
+    resolvers.forEach((r) => r());
+
+    // Wait for the cleanup promise chain to execute
+    await vi.waitFor(() => {
+      for (const fn of unlistenFns) {
+        expect(fn).toHaveBeenCalledOnce();
+      }
+    });
+  });
+
   it("onError callback sets error and stops loading", async () => {
     const session = createMockSession();
     const args = createRenderArgs(session);

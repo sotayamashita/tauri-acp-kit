@@ -21,8 +21,6 @@ export interface UseAcpSessionReturn {
   retry: () => void;
   setError: React.Dispatch<React.SetStateAction<Error | null>>;
   setCurrentModelId: React.Dispatch<React.SetStateAction<string | null>>;
-  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
-  setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
   streamingContentRef: React.MutableRefObject<string>;
 }
 
@@ -61,37 +59,53 @@ export function useAcpSession(
     setIsReady(false);
     setError(null);
 
+    const isMounted = () => mounted;
+
+    const spawnAndConnect = async () => {
+      const agent = new AcpAgent();
+      await agent.spawn(options.agentSpec);
+      if (!isMounted()) {
+        await agent.terminate();
+        return null;
+      }
+      agentRef.current = agent;
+      return agent;
+    };
+
+    const registerGlobalListener = async (agent: AcpAgent) => {
+      const unlisten = await agent.onEvent((event) => {
+        console.log("[AcpChat] Global event received:", event);
+      });
+      if (!isMounted()) {
+        unlisten();
+        await agent.terminate();
+        return false;
+      }
+      globalUnlistenRef.current = unlisten;
+      return true;
+    };
+
+    const startSession = async (agent: AcpAgent) => {
+      const cwd = options.cwd || ".";
+      const newSession = await agent.startSession(cwd);
+      if (!isMounted()) {
+        await agent.terminate();
+        return;
+      }
+      setSession(newSession);
+      setAvailableModels(newSession.models);
+      setCurrentModelId(newSession.currentModelId);
+      setIsReady(true);
+    };
+
     const init = async () => {
       try {
-        const agent = new AcpAgent();
-        await agent.spawn(options.agentSpec);
-
-        if (!mounted) {
-          await agent.terminate();
-          return;
-        }
-
-        agentRef.current = agent;
-
-        const globalUnlisten = await agent.onEvent((event) => {
-          console.log("[AcpChat] Global event received:", event);
-        });
-        globalUnlistenRef.current = globalUnlisten;
-
-        const cwd = options.cwd || ".";
-        const newSession = await agent.startSession(cwd);
-
-        if (!mounted) {
-          await agent.terminate();
-          return;
-        }
-
-        setSession(newSession);
-        setAvailableModels(newSession.models);
-        setCurrentModelId(newSession.currentModelId);
-        setIsReady(true);
+        const agent = await spawnAndConnect();
+        if (!agent) return;
+        if (!(await registerGlobalListener(agent))) return;
+        await startSession(agent);
       } catch (err) {
-        if (mounted) {
+        if (isMounted()) {
           const raw = err as Error;
           const rawMsg = raw.message ?? String(err);
           const friendly = new Error(formatAcpError(rawMsg, options.agentSpec.executable));
@@ -139,8 +153,6 @@ export function useAcpSession(
     retry,
     setError,
     setCurrentModelId,
-    setMessages,
-    setIsLoading,
     streamingContentRef,
   };
 }

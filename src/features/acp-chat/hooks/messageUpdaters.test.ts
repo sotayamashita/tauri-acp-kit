@@ -6,6 +6,8 @@ import {
   appendToolCallToLastAssistant,
   updateToolCallStatus,
   updateOrAppendPlan,
+  mapAcpStatus,
+  updateLastAssistant,
 } from "./messageUpdaters";
 
 function makeAssistantMessage(blocks: Message["blocks"] = []): Message {
@@ -27,6 +29,35 @@ function makeUserMessage(): Message {
 }
 
 describe("messageUpdaters", () => {
+  describe("updateLastAssistant", () => {
+    it("returns messages unchanged when last message is not assistant", () => {
+      const messages: Message[] = [makeUserMessage()];
+      const updater = (msg: Message) => ({ ...msg, blocks: [] });
+      const result = updateLastAssistant(messages, updater);
+      expect(result).toBe(messages);
+    });
+
+    it("applies updater to last assistant message and returns new array", () => {
+      const messages: Message[] = [
+        makeUserMessage(),
+        makeAssistantMessage([{ type: "text", text: "old" }]),
+      ];
+      const result = updateLastAssistant(messages, (msg) => ({
+        ...msg,
+        blocks: [{ type: "text" as const, text: "new" }],
+      }));
+      expect(result).toHaveLength(2);
+      expect(result[0]).toBe(messages[0]);
+      expect(result[1].blocks).toEqual([{ type: "text", text: "new" }]);
+    });
+
+    it("returns messages unchanged for empty array", () => {
+      const messages: Message[] = [];
+      const result = updateLastAssistant(messages, (msg) => msg);
+      expect(result).toBe(messages);
+    });
+  });
+
   describe("appendTextToLastAssistant", () => {
     it("updates text block on last assistant message", () => {
       const messages: Message[] = [
@@ -126,6 +157,24 @@ describe("messageUpdaters", () => {
       ];
       const result = updateToolCallStatus(messages, "tc-1", "completed");
       expect(result[0].blocks[1]).toMatchObject({ toolCallId: "tc-2", status: "pending" });
+    });
+  });
+
+  describe("mapAcpStatus", () => {
+    it("maps completed to completed", () => {
+      expect(mapAcpStatus("completed")).toBe("completed");
+    });
+
+    it("maps failed to failed", () => {
+      expect(mapAcpStatus("failed")).toBe("failed");
+    });
+
+    it("maps in_progress to running", () => {
+      expect(mapAcpStatus("in_progress")).toBe("running");
+    });
+
+    it("returns pending for unknown status", () => {
+      expect(mapAcpStatus("queued")).toBe("pending");
     });
   });
 
