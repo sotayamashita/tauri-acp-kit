@@ -7,10 +7,19 @@ let progressCallback: ((p: DownloadProgress) => void) | null = null;
 const mockUnlisten = vi.fn();
 const mockDownloadAgent = vi.fn();
 
+// Controls for deferred listener registration
+let deferredResolve: ((fn: () => void) => void) | null = null;
+let useDeferred = false;
+
 vi.mock("tauri-acp", () => ({
   downloadAgent: (...args: unknown[]) => mockDownloadAgent(...args),
   onDownloadProgress: (cb: (p: DownloadProgress) => void) => {
     progressCallback = cb;
+    if (useDeferred) {
+      return new Promise<() => void>((resolve) => {
+        deferredResolve = resolve;
+      });
+    }
     return Promise.resolve(mockUnlisten);
   },
 }));
@@ -31,6 +40,8 @@ function makeProgress(overrides: Partial<DownloadProgress> = {}): DownloadProgre
 describe("useAgentDownload", () => {
   beforeEach(() => {
     progressCallback = null;
+    deferredResolve = null;
+    useDeferred = false;
     mockUnlisten.mockClear();
     mockDownloadAgent.mockReset();
     mockDownloadAgent.mockResolvedValue({
@@ -60,7 +71,26 @@ describe("useAgentDownload", () => {
     await act(async () => {});
 
     unmount();
+
+    // Cleanup is async (promise.then), wait for microtask
+    await act(async () => {});
     expect(mockUnlisten).toHaveBeenCalled();
+  });
+
+  it("calls unlisten even when unmounted before promise resolves", async () => {
+    useDeferred = true;
+    const delayedUnlisten = vi.fn();
+
+    const { unmount } = renderHook(() => useAgentDownload("test-agent"));
+
+    // Unmount BEFORE promise resolves — this is the race condition
+    unmount();
+
+    // Now resolve the listener registration after unmount
+    deferredResolve?.(delayedUnlisten);
+    await act(async () => {});
+
+    expect(delayedUnlisten).toHaveBeenCalledOnce();
   });
 
   it("download calls downloadAgent with agentId", async () => {

@@ -76,6 +76,13 @@ export function useAcpSession(
         const globalUnlisten = await agent.onEvent((event) => {
           console.log("[AcpChat] Global event received:", event);
         });
+
+        if (!mounted) {
+          globalUnlisten();
+          await agent.terminate();
+          return;
+        }
+
         globalUnlistenRef.current = globalUnlisten;
 
         const cwd = options.cwd || ".";

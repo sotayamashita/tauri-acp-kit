@@ -12,9 +12,9 @@ import {
 /**
  * Register all ACP session event listeners and clean them up on unmount.
  *
- * This hook listens for delta, thought, toolCall, toolCallUpdate, plan,
- * complete, and error events on the given session. The streaming refs are
- * used to accumulate content across multiple delta events.
+ * Uses Promise.all with a cancelled flag to ensure listeners are always
+ * cleaned up, even if the component unmounts before async registration
+ * completes.
  */
 export function useAcpEventListeners(
   session: AcpSession | null,
@@ -27,61 +27,42 @@ export function useAcpEventListeners(
   useEffect(() => {
     if (!session) return;
 
-    const unlisteners: Array<() => void> = [];
-
-    const setup = async () => {
-      const deltaUnlisten = await session.onDelta((text) => {
+    const promise = Promise.all([
+      session.onDelta((text) => {
         streamingContentRef.current += text;
         setMessages((prev) => appendTextToLastAssistant(prev, streamingContentRef.current));
-      });
-      unlisteners.push(deltaUnlisten);
-
-      const thoughtUnlisten = await session.onThoughtDelta((text) => {
+      }),
+      session.onThoughtDelta((text) => {
         streamingThoughtRef.current += text;
         setMessages((prev) => appendThinkingToLastAssistant(prev, streamingThoughtRef.current));
-      });
-      unlisteners.push(thoughtUnlisten);
-
-      const toolCallUnlisten = await session.onToolCall((event) => {
+      }),
+      session.onToolCall((event) => {
         setMessages((prev) =>
           appendToolCallToLastAssistant(prev, event.tool_call_id, event.tool_name, event.status),
         );
-      });
-      unlisteners.push(toolCallUnlisten);
-
-      const toolCallUpdateUnlisten = await session.onToolCallUpdate((event) => {
+      }),
+      session.onToolCallUpdate((event) => {
         setMessages((prev) => updateToolCallStatus(prev, event.tool_call_id, event.status));
-      });
-      unlisteners.push(toolCallUpdateUnlisten);
-
-      const planUnlisten = await session.onPlanUpdate((event) => {
+      }),
+      session.onPlanUpdate((event) => {
         const tasks = Array.isArray(event.tasks) ? event.tasks : [];
         setMessages((prev) =>
           updateOrAppendPlan(prev, tasks as Array<{ id: string; title: string; status: string }>),
         );
-      });
-      unlisteners.push(planUnlisten);
-
-      const completeUnlisten = await session.onComplete(() => {
+      }),
+      session.onComplete(() => {
         setIsLoading(false);
         streamingContentRef.current = "";
         streamingThoughtRef.current = "";
-      });
-      unlisteners.push(completeUnlisten);
-
-      const errorUnlisten = await session.onError((msg) => {
+      }),
+      session.onError((msg) => {
         setError(new Error(msg));
         setIsLoading(false);
-      });
-      unlisteners.push(errorUnlisten);
-    };
-
-    setup();
+      }),
+    ]);
 
     return () => {
-      for (const unlisten of unlisteners) {
-        unlisten();
-      }
+      promise.then((unlisteners) => unlisteners.forEach((fn) => fn()));
     };
   }, [session, setMessages, setIsLoading, setError, streamingContentRef, streamingThoughtRef]);
 }

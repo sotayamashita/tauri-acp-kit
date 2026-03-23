@@ -15,9 +15,7 @@ export function useAgentDownload(agentId: string): UseAgentDownloadReturn {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let unlisten: (() => void) | null = null;
-
-    onDownloadProgress((p) => {
+    const promise = onDownloadProgress((p) => {
       if (p.agentId === agentId) {
         setProgress(p);
         if (p.phase === "complete") {
@@ -29,12 +27,10 @@ export function useAgentDownload(agentId: string): UseAgentDownloadReturn {
           setIsDownloading(true);
         }
       }
-    }).then((fn) => {
-      unlisten = fn;
     });
 
     return () => {
-      unlisten?.();
+      promise.then((unlisten) => unlisten());
     };
   }, [agentId]);
 
