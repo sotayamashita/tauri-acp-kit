@@ -21,6 +21,8 @@ interface ChatMessageListProps {
   modelId?: string | null;
   modelDisplayName?: string | null;
   onSuggestClick?: (text: string) => void;
+  onApproveToolCall?: (toolCallId: string) => void;
+  onRejectToolCall?: (toolCallId: string) => void;
 }
 
 export function ChatMessageList({
@@ -31,6 +33,8 @@ export function ChatMessageList({
   modelId,
   modelDisplayName,
   onSuggestClick,
+  onApproveToolCall,
+  onRejectToolCall,
 }: ChatMessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -103,7 +107,12 @@ export function ChatMessageList({
             <div className="acp-chat-message-ai">
               {msg.blocks.length > 0 ? (
                 msg.blocks.map((block, i) => (
-                  <ContentBlockRenderer key={`${msg.id}-${i}`} block={block} />
+                  <ContentBlockRenderer
+                    key={`${msg.id}-${i}`}
+                    block={block}
+                    onApproveToolCall={onApproveToolCall}
+                    onRejectToolCall={onRejectToolCall}
+                  />
                 ))
               ) : showTypingIndicator && msg === lastMessage ? (
                 <TypingIndicator />

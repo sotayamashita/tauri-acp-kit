@@ -30,6 +30,8 @@
   --chat-tool-running: #5b8db8;
   --chat-tool-completed: #4a7c4e;
   --chat-tool-failed: #d64545;
+  --chat-tool-waiting: #d4a843;
+  --chat-tool-rejected: #a0522d;
   --chat-tool-content-bg: #f0ebe0;
   --chat-plan-task-border: #eae5da;
   --chat-disabled: #c4bfb0;
@@ -85,6 +87,8 @@
   --chat-tool-running: #6aafcf;
   --chat-tool-completed: #6aaf6e;
   --chat-tool-failed: #e06060;
+  --chat-tool-waiting: #e0b850;
+  --chat-tool-rejected: #c06040;
   --chat-tool-content-bg: #2a2a2a;
   --chat-plan-task-border: #333333;
   --chat-disabled: #555555;
@@ -885,6 +889,14 @@
   overflow: hidden;
 }
 
+.tool-call-card[data-status="waiting_confirmation"] {
+  border-color: var(--chat-tool-waiting);
+}
+
+.tool-call-card[data-status="rejected"] {
+  opacity: 0.7;
+}
+
 .tool-call-header {
   display: flex;
   align-items: center;
@@ -952,9 +964,58 @@
   font-weight: bold;
 }
 
+.tool-call-status-icon.waiting {
+  background: var(--chat-tool-waiting);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.tool-call-status-icon.rejected {
+  background: none;
+  color: var(--chat-tool-rejected);
+  font-weight: bold;
+}
+
+.tool-call-actions {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--chat-border);
+}
+
+.tool-call-action-btn {
+  padding: 4px 12px;
+  border: 1px solid var(--chat-border);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.tool-call-action-btn.approve {
+  background: var(--chat-tool-completed);
+  color: #fff;
+  border-color: var(--chat-tool-completed);
+}
+
+.tool-call-action-btn.approve:hover {
+  opacity: 0.9;
+}
+
+.tool-call-action-btn.reject {
+  background: none;
+  color: var(--chat-text);
+}
+
+.tool-call-action-btn.reject:hover {
+  background: var(--chat-tool-failed);
+  color: #fff;
+  border-color: var(--chat-tool-failed);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tool-call-status-icon.pending,
   .tool-call-status-icon.running,
+  .tool-call-status-icon.waiting,
   .acp-chat-status.connecting,
   .acp-chat-status.generating,
   .acp-chat-scroll-fab,

@@ -402,4 +402,15 @@ describe("useAcpChat message operations", () => {
     expect(result.current.input).toBe("");
     expect(result.current.error).toBeNull();
   });
+
+  it("exposes approveToolCall and rejectToolCall functions", async () => {
+    const { result } = renderHook(() => useAcpChat({ agentSpec: testAgentSpec }));
+
+    await waitFor(() => {
+      expect(result.current.isReady).toBe(true);
+    });
+
+    expect(typeof result.current.approveToolCall).toBe("function");
+    expect(typeof result.current.rejectToolCall).toBe("function");
+  });
 });

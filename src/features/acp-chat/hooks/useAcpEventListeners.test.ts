@@ -24,6 +24,10 @@ function createMockSession() {
       listeners.toolCallUpdate = cb;
       return vi.fn();
     }),
+    onPermissionRequest: vi.fn(async (cb: Callback) => {
+      listeners.permissionRequest = cb;
+      return vi.fn();
+    }),
     onPlanUpdate: vi.fn(async (cb: Callback) => {
       listeners.plan = cb;
       return vi.fn();
@@ -160,6 +164,30 @@ describe("useAcpEventListeners", () => {
     expect(args.setMessages).toHaveBeenCalled();
   });
 
+  it("onToolCall callback passes input when present", async () => {
+    const session = createMockSession();
+    const args = createRenderArgs(session);
+    renderHook(() =>
+      useAcpEventListeners(
+        args.session,
+        args.setMessages,
+        args.setIsLoading,
+        args.setError,
+        args.streamingContentRef,
+        args.streamingThoughtRef,
+      ),
+    );
+
+    await vi.waitFor(() => expect(session.onToolCall).toHaveBeenCalledOnce());
+    session.listeners.toolCall({
+      tool_call_id: "tc-1",
+      tool_name: "Read",
+      status: "pending",
+      input: { file: "test.ts" },
+    });
+    expect(args.setMessages).toHaveBeenCalled();
+  });
+
   it("onToolCallUpdate callback calls setMessages", async () => {
     const session = createMockSession();
     const args = createRenderArgs(session);
@@ -208,7 +236,7 @@ describe("useAcpEventListeners", () => {
 
   it("cleanup calls all unlisteners even when unmounted before setup completes", async () => {
     // Create a session where listener registration is delayed
-    const unlistenFns = Array.from({ length: 7 }, () => vi.fn());
+    const unlistenFns = Array.from({ length: 8 }, () => vi.fn());
     let resolvers: Array<() => void> = [];
     const delayedSession = {
       onDelta: vi.fn(() => new Promise<() => void>((r) => resolvers.push(() => r(unlistenFns[0])))),
@@ -221,13 +249,16 @@ describe("useAcpEventListeners", () => {
       onToolCallUpdate: vi.fn(
         () => new Promise<() => void>((r) => resolvers.push(() => r(unlistenFns[3]))),
       ),
-      onPlanUpdate: vi.fn(
+      onPermissionRequest: vi.fn(
         () => new Promise<() => void>((r) => resolvers.push(() => r(unlistenFns[4]))),
       ),
-      onComplete: vi.fn(
+      onPlanUpdate: vi.fn(
         () => new Promise<() => void>((r) => resolvers.push(() => r(unlistenFns[5]))),
       ),
-      onError: vi.fn(() => new Promise<() => void>((r) => resolvers.push(() => r(unlistenFns[6])))),
+      onComplete: vi.fn(
+        () => new Promise<() => void>((r) => resolvers.push(() => r(unlistenFns[6]))),
+      ),
+      onError: vi.fn(() => new Promise<() => void>((r) => resolvers.push(() => r(unlistenFns[7])))),
     };
     const args = createRenderArgs(
       delayedSession as unknown as ReturnType<typeof createMockSession>,

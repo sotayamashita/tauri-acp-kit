@@ -49,6 +49,8 @@ export function AcpChat({
     currentModelName,
     reasoningLevel,
     reasoningLevels,
+    approveToolCall,
+    rejectToolCall,
     append,
     stop,
     reset,
@@ -161,6 +163,8 @@ export function AcpChat({
           modelId={currentModelId}
           modelDisplayName={currentModelName}
           onSuggestClick={handleSuggestClick}
+          onApproveToolCall={approveToolCall}
+          onRejectToolCall={rejectToolCall}
         />
       )}
 

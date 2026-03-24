@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ContentBlockRenderer } from "./ContentBlockRenderer";
 import type { ContentBlock } from "../types";
@@ -74,6 +74,60 @@ describe("ContentBlockRenderer", () => {
     };
     render(<ContentBlockRenderer block={block} />);
     expect(screen.getByLabelText("Failed")).toBeTruthy();
+  });
+
+  it("renders tool call card with waiting_confirmation status", () => {
+    const block: ContentBlock = {
+      type: "tool_call",
+      toolCallId: "tc-7",
+      title: "Bash",
+      kind: "terminal",
+      status: "waiting_confirmation",
+    };
+    render(<ContentBlockRenderer block={block} />);
+    expect(screen.getByLabelText("Waiting for confirmation")).toBeTruthy();
+    expect(screen.getByText("Approve")).toBeTruthy();
+    expect(screen.getByText("Reject")).toBeTruthy();
+  });
+
+  it("renders tool call card with rejected status", () => {
+    const block: ContentBlock = {
+      type: "tool_call",
+      toolCallId: "tc-8",
+      title: "Write",
+      kind: "write",
+      status: "rejected",
+    };
+    render(<ContentBlockRenderer block={block} />);
+    expect(screen.getByLabelText("Rejected")).toBeTruthy();
+  });
+
+  it("passes onApproveToolCall callback to tool call card", () => {
+    const onApprove = vi.fn();
+    const block: ContentBlock = {
+      type: "tool_call",
+      toolCallId: "tc-9",
+      title: "Bash",
+      kind: "terminal",
+      status: "waiting_confirmation",
+    };
+    render(<ContentBlockRenderer block={block} onApproveToolCall={onApprove} />);
+    fireEvent.click(screen.getByText("Approve"));
+    expect(onApprove).toHaveBeenCalledWith("tc-9");
+  });
+
+  it("passes onRejectToolCall callback to tool call card", () => {
+    const onReject = vi.fn();
+    const block: ContentBlock = {
+      type: "tool_call",
+      toolCallId: "tc-10",
+      title: "Bash",
+      kind: "terminal",
+      status: "waiting_confirmation",
+    };
+    render(<ContentBlockRenderer block={block} onRejectToolCall={onReject} />);
+    fireEvent.click(screen.getByText("Reject"));
+    expect(onReject).toHaveBeenCalledWith("tc-10");
   });
 
   it("tool call card toggles content on click when output exists", () => {

@@ -21,6 +21,14 @@ export async function cancel(sessionId: string): Promise<void> {
   return invoke<void>("plugin:acp|acp_cancel", { sessionId });
 }
 
+export async function respondPermission(
+  sessionId: string,
+  requestId: number,
+  optionId: string,
+): Promise<void> {
+  return invoke<void>("plugin:acp|acp_respond_permission", { sessionId, requestId, optionId });
+}
+
 export async function terminateAgent(agentId: string): Promise<void> {
   return invoke<void>("plugin:acp|acp_terminate_agent", { agentId });
 }

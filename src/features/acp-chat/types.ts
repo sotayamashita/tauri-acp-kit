@@ -13,7 +13,13 @@ export interface ThinkingBlock {
   text: string;
 }
 
-export type ToolCallStatus = "pending" | "running" | "completed" | "failed";
+export type ToolCallStatus =
+  | "pending"
+  | "waiting_confirmation"
+  | "running"
+  | "completed"
+  | "failed"
+  | "rejected";
 export type ToolKind = "read" | "write" | "terminal" | "browser" | "unknown";
 
 export interface ToolCallBlock {
@@ -24,6 +30,7 @@ export interface ToolCallBlock {
   status: ToolCallStatus;
   input?: string;
   output?: string;
+  permissionRequestId?: number;
 }
 
 export interface PlanTask {
@@ -84,6 +91,8 @@ export interface UseAcpChatReturn {
   downloadProgress: DownloadProgress | null;
   isDownloading: boolean;
   download: () => Promise<void>;
+  approveToolCall: (toolCallId: string) => void;
+  rejectToolCall: (toolCallId: string) => void;
   append: (content: string) => Promise<void>;
   stop: () => Promise<void>;
   reset: () => void;

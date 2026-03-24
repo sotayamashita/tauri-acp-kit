@@ -14,6 +14,7 @@ export type {
   AcpEvent,
   AcpModel,
   DownloadProgress,
+  PermissionOption,
   ResolvedAgent,
   SessionInfo,
   StopReason,

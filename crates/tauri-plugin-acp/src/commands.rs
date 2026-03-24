@@ -497,6 +497,41 @@ pub async fn acp_set_model<R: Runtime>(
 }
 
 #[tauri::command]
+pub async fn acp_respond_permission<R: Runtime>(
+    _app: AppHandle<R>,
+    state: State<'_, PluginState>,
+    session_id: String,
+    request_id: i64,
+    option_id: String,
+) -> Result<(), Error> {
+    let session = state.get_session(&session_id).await?;
+    let handle = state.get_agent_handle(&session.agent_id).await?;
+
+    let response = crate::protocol::JsonRpcResponse {
+        jsonrpc: Some("2.0".to_string()),
+        id: crate::protocol::JsonRpcId::Number(request_id),
+        result: Some(serde_json::json!({
+            "outcome": {
+                "outcome": "selected",
+                "optionId": option_id
+            }
+        })),
+        error: None,
+    };
+
+    handle.send_response(response).await?;
+
+    tracing::info!(
+        session_id = %session_id,
+        request_id = request_id,
+        option_id = %option_id,
+        "Permission response sent"
+    );
+
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn acp_terminate_agent<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, PluginState>,

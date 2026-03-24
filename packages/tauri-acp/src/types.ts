@@ -32,7 +32,22 @@ export type AcpEvent =
   | { type: "error"; session_id?: string; message: string }
   | { type: "agent_spawned"; agent_id: string }
   | { type: "session_ready"; session_id: string; agent_id: string }
-  | { type: "agent_terminated"; agent_id: string; exit_code?: number };
+  | { type: "agent_terminated"; agent_id: string; exit_code?: number }
+  | {
+      type: "permission_request";
+      session_id: string;
+      request_id: number;
+      tool_call_id: string;
+      title: string;
+      raw_input?: unknown;
+      options: PermissionOption[];
+    };
+
+export interface PermissionOption {
+  option_id: string;
+  name: string;
+  kind: string;
+}
 
 export interface AcpModel {
   id: string;

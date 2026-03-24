@@ -114,6 +114,20 @@ export class AcpSession {
     );
   }
 
+  async respondPermission(requestId: number, optionId: string): Promise<void> {
+    return commands.respondPermission(this._id, requestId, optionId);
+  }
+
+  async onPermissionRequest(
+    callback: (event: Extract<AcpEvent, { type: "permission_request" }>) => void,
+  ): Promise<UnlistenFn> {
+    return this.onSessionEvent(
+      "permission_request",
+      (event) => (event.type === "permission_request" ? event : undefined),
+      callback,
+    );
+  }
+
   async onPlanUpdate(
     callback: (event: Extract<AcpEvent, { type: "plan_update" }>) => void,
   ): Promise<UnlistenFn> {

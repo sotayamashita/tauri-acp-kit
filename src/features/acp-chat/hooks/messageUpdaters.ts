@@ -13,6 +13,8 @@ export function mapAcpStatus(status: string): ToolCallStatus {
   if (status === "completed") return "completed";
   if (status === "failed") return "failed";
   if (status === "in_progress") return "running";
+  if (status === "waiting_confirmation") return "waiting_confirmation";
+  if (status === "rejected") return "rejected";
   return "pending";
 }
 
@@ -42,15 +44,26 @@ export function appendToolCallToLastAssistant(
   messages: Message[],
   toolCallId: string,
   toolName: string,
-  status: string,
+  input?: string,
 ): Message[] {
   return updateLastAssistant(messages, (last) => {
+    const existing = last.blocks.find((b) => b.type === "tool_call" && b.toolCallId === toolCallId);
+    if (existing) {
+      const blocks = last.blocks.map((b) => {
+        if (b.type === "tool_call" && b.toolCallId === toolCallId) {
+          return { ...b, title: toolName, ...(input != null && { input }) } as ContentBlock;
+        }
+        return b;
+      });
+      return { ...last, blocks };
+    }
     const block: ContentBlock = {
       type: "tool_call",
       toolCallId,
       title: toolName,
       kind: "unknown",
-      status: mapAcpStatus(status),
+      status: "waiting_confirmation",
+      input,
     };
     return { ...last, blocks: [...last.blocks, block] };
   });
@@ -60,12 +73,51 @@ export function updateToolCallStatus(
   messages: Message[],
   toolCallId: string,
   newStatus: string,
+  output?: string,
 ): Message[] {
   return updateLastAssistant(messages, (last) => {
     const mappedStatus = mapAcpStatus(newStatus);
     const blocks = last.blocks.map((b) => {
       if (b.type === "tool_call" && b.toolCallId === toolCallId) {
-        return { ...b, status: mappedStatus } as ContentBlock;
+        return { ...b, status: mappedStatus, ...(output != null && { output }) } as ContentBlock;
+      }
+      return b;
+    });
+    return { ...last, blocks };
+  });
+}
+
+export function setToolCallStatus(
+  messages: Message[],
+  toolCallId: string,
+  newStatus: ToolCallStatus,
+): Message[] {
+  return updateLastAssistant(messages, (last) => {
+    const blocks = last.blocks.map((b) => {
+      if (b.type === "tool_call" && b.toolCallId === toolCallId) {
+        return { ...b, status: newStatus } as ContentBlock;
+      }
+      return b;
+    });
+    return { ...last, blocks };
+  });
+}
+
+export function setPermissionRequest(
+  messages: Message[],
+  toolCallId: string,
+  requestId: number,
+  input?: string,
+): Message[] {
+  return updateLastAssistant(messages, (last) => {
+    const blocks = last.blocks.map((b) => {
+      if (b.type === "tool_call" && b.toolCallId === toolCallId) {
+        return {
+          ...b,
+          status: "waiting_confirmation" as const,
+          permissionRequestId: requestId,
+          ...(input != null && { input }),
+        } as ContentBlock;
       }
       return b;
     });
