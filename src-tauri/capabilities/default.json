@@ -16,6 +16,7 @@
     "acp:allow-acp-check-agent-available",
     "acp:allow-acp-check-agent",
     "acp:allow-acp-download-agent",
-    "acp:allow-acp-get-agent-registry"
+    "acp:allow-acp-get-agent-registry",
+    "acp:allow-acp-get-cli-version"
   ]
 }

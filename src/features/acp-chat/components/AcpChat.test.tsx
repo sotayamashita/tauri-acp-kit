@@ -134,7 +134,7 @@ describe("AcpChat — Phase 17 interactions", () => {
 
   // --- Step 17.3: Empty state ---
 
-  it("header shows provider name and version when ready", async () => {
+  it("header shows provider name and version tooltip when ready", async () => {
     render(
       <AcpChat
         agentSpec={mockProviders[0].agentSpec}
@@ -146,7 +146,9 @@ describe("AcpChat — Phase 17 interactions", () => {
     await screen.findByRole("button", { name: /Sonnet 4/i });
     const title = document.querySelector(".acp-chat-header-title");
     expect(title).toHaveTextContent("Claude Code");
-    expect(screen.getByText("(1.0.0)")).toBeInTheDocument();
+    const tooltip = document.querySelector(".acp-chat-header-info-tooltip");
+    expect(tooltip).toHaveTextContent("ACP adapter");
+    expect(tooltip).toHaveTextContent("1.0.0");
   });
 
   it("empty state shows resolved cwd from session", async () => {

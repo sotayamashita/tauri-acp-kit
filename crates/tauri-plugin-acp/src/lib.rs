@@ -32,6 +32,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::acp_check_agent,
             commands::acp_download_agent,
             commands::acp_get_agent_registry,
+            commands::acp_get_cli_version,
         ])
         .setup(|app, _api| {
             let plugin_state = state::PluginState::new();

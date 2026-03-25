@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { getCliVersion } from "tauri-acp";
 import type { Message, ToolCallStatus, UseAcpChatOptions, UseAcpChatReturn } from "../types";
 import { parseReasoningModels } from "../utils/parseReasoningModels";
 import { setToolCallStatus } from "./messageUpdaters";
@@ -31,6 +32,15 @@ export function useAcpChat(options: UseAcpChatOptions): UseAcpChatReturn {
     setMessages,
     setIsLoading,
   );
+
+  const [cliVersion, setCliVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!options.cliExecutable) return;
+    getCliVersion(options.cliExecutable)
+      .then(setCliVersion)
+      .catch(() => {});
+  }, [options.cliExecutable]);
 
   const {
     progress: downloadProgress,
@@ -171,6 +181,7 @@ export function useAcpChat(options: UseAcpChatOptions): UseAcpChatReturn {
     reasoningLevels: reasoningLevelsMap?.get(effectiveModelId ?? "") ?? null,
     resolvedCwd: session?.cwd ?? null,
     agentVersion: session?.agentVersion ?? null,
+    cliVersion,
     downloadProgress,
     isDownloading,
     download,

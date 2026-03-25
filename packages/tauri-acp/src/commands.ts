@@ -36,3 +36,7 @@ export async function terminateAgent(agentId: string): Promise<void> {
 export async function downloadAgent(agentId: string): Promise<ResolvedAgent> {
   return invoke<ResolvedAgent>("plugin:acp|acp_download_agent", { agentId });
 }
+
+export async function getCliVersion(executable: string): Promise<string | null> {
+  return invoke<string | null>("plugin:acp|acp_get_cli_version", { executable });
+}

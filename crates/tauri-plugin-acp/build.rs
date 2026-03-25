@@ -10,6 +10,7 @@ const COMMANDS: &[&str] = &[
     "acp_check_agent",
     "acp_download_agent",
     "acp_get_agent_registry",
+    "acp_get_cli_version",
 ];
 
 fn main() {

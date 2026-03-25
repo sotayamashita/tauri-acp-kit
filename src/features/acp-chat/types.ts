@@ -71,6 +71,7 @@ export interface UseAcpChatOptions {
   agentSpec: AgentSpec;
   cwd?: string;
   supportsReasoningLevel?: boolean;
+  cliExecutable?: string;
   onError?: (error: Error) => void;
 }
 
@@ -90,6 +91,7 @@ export interface UseAcpChatReturn {
   reasoningLevels: string[] | null;
   resolvedCwd: string | null;
   agentVersion: string | null;
+  cliVersion: string | null;
   downloadProgress: DownloadProgress | null;
   isDownloading: boolean;
   download: () => Promise<void>;

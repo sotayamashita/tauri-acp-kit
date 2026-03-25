@@ -635,6 +635,27 @@ pub async fn acp_download_agent<R: Runtime>(
     Ok(resolved)
 }
 
+/// Run `<executable> --version` and return the parsed version string.
+#[tauri::command]
+pub async fn acp_get_cli_version(executable: String) -> Result<Option<String>, Error> {
+    let output = tokio::process::Command::new(&executable)
+        .arg("--version")
+        .output()
+        .await;
+
+    match output {
+        Ok(o) if o.status.success() => {
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            let version = stdout
+                .split_whitespace()
+                .find(|tok| tok.starts_with(|c: char| c.is_ascii_digit()))
+                .map(|s| s.to_string());
+            Ok(version)
+        }
+        _ => Ok(None),
+    }
+}
+
 /// Get the agent registry.
 #[tauri::command]
 pub async fn acp_get_agent_registry(
