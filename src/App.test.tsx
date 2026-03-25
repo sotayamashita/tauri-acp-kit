@@ -135,7 +135,7 @@ describe("App", () => {
     const reasoningBtn = await screen.findByRole("button", { name: /Medium/i });
     fireEvent.click(reasoningBtn);
 
-    const highOption = screen.getByRole("option", { name: /High/i });
+    const highOption = screen.getByRole("menuitem", { name: /High/i });
     fireEvent.click(highOption);
 
     await waitFor(() => {

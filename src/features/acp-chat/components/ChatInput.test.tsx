@@ -125,7 +125,7 @@ describe("ChatInput", () => {
 
   it("model dropdown renders when availableModels is non-empty", () => {
     renderChatInput();
-    expect(screen.getByText("Sonnet 4")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Sonnet 4/i })).toBeInTheDocument();
   });
 
   it("reasoning level dropdown renders when provider supports reasoning", () => {
@@ -134,6 +134,6 @@ describe("ChatInput", () => {
       reasoningLevel: "medium",
       reasoningLevels: ["low", "medium", "high"],
     });
-    expect(screen.getByText("Medium")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Medium/i })).toBeInTheDocument();
   });
 });

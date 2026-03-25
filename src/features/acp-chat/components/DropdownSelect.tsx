@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useClickOutside } from "../hooks/useClickOutside";
 import { ChevronDown } from "lucide-react";
 
@@ -26,43 +26,59 @@ export function DropdownSelect<T>({
 }: DropdownSelectProps<T>) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const closeDropdown = useCallback(() => setOpen(false), []);
   useClickOutside(wrapperRef, closeDropdown, open);
 
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [open]);
+
   return (
     <div className={`acp-chat-dropdown-wrapper ${className ?? ""}`} ref={wrapperRef}>
       <button
+        ref={triggerRef}
         type="button"
         className="acp-chat-dropdown"
         onClick={() => setOpen(!open)}
         disabled={disabled}
+        aria-haspopup="menu"
+        aria-expanded={open}
       >
         {triggerLabel}
         <ChevronDown size={12} />
       </button>
-      {open && items.length > 0 && (
-        <div className="acp-chat-dropdown-menu" role="listbox">
-          {items.map((item) => {
-            const id = getItemId(item);
-            return (
-              <button
-                key={id}
-                type="button"
-                role="option"
-                aria-selected={id === selectedId}
-                className={`acp-chat-dropdown-item ${id === selectedId ? "selected" : ""}`}
-                onClick={() => {
-                  onSelect(item);
-                  setOpen(false);
-                }}
-              >
-                {renderLabel(item)}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      <div
+        className={`acp-chat-dropdown-menu ${open && items.length > 0 ? "open" : ""}`}
+        role="menu"
+      >
+        {items.map((item) => {
+          const id = getItemId(item);
+          return (
+            <button
+              key={id}
+              type="button"
+              role="menuitem"
+              className={`acp-chat-dropdown-item ${id === selectedId ? "selected" : ""}`}
+              onClick={() => {
+                onSelect(item);
+                setOpen(false);
+              }}
+            >
+              {renderLabel(item)}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

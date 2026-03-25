@@ -28,15 +28,21 @@ function renderDropdown(overrides: Partial<Parameters<typeof DropdownSelect<Test
 }
 
 describe("DropdownSelect", () => {
-  it("renders trigger button with triggerLabel", () => {
+  it("renders trigger button with triggerLabel and aria attributes", () => {
     renderDropdown({ triggerLabel: "Pick one" });
-    expect(screen.getByText("Pick one")).toBeInTheDocument();
+    const btn = screen.getByText("Pick one");
+    expect(btn).toBeInTheDocument();
+    expect(btn).toHaveAttribute("aria-haspopup", "menu");
+    expect(btn).toHaveAttribute("aria-expanded", "false");
   });
 
   it("clicking trigger opens the dropdown menu", () => {
     renderDropdown();
-    fireEvent.click(screen.getByText("Select"));
-    expect(screen.getByRole("listbox")).toBeInTheDocument();
+    const trigger = screen.getByText("Select");
+    fireEvent.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    const menuItems = screen.getAllByRole("menuitem");
+    expect(menuItems).toHaveLength(3);
     expect(screen.getByText("Alpha")).toBeInTheDocument();
   });
 
@@ -46,36 +52,46 @@ describe("DropdownSelect", () => {
     fireEvent.click(screen.getByText("Select"));
     fireEvent.click(screen.getByText("Beta"));
     expect(onSelect).toHaveBeenCalledWith(items[1]);
-    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(screen.getByText("Select")).toHaveAttribute("aria-expanded", "false");
   });
 
   it("clicking outside closes the menu", () => {
     renderDropdown();
     fireEvent.click(screen.getByText("Select"));
-    expect(screen.getByRole("listbox")).toBeInTheDocument();
+    expect(screen.getByText("Select")).toHaveAttribute("aria-expanded", "true");
     fireEvent.mouseDown(document.body);
-    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(screen.getByText("Select")).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("Escape key closes the menu", () => {
+    renderDropdown();
+    fireEvent.click(screen.getByText("Select"));
+    expect(screen.getByText("Select")).toHaveAttribute("aria-expanded", "true");
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.getByText("Select")).toHaveAttribute("aria-expanded", "false");
   });
 
   it("disabled dropdown does not open on click", () => {
     renderDropdown({ disabled: true });
     fireEvent.click(screen.getByRole("button"));
-    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(screen.getByRole("button")).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("selected item has aria-selected='true'", () => {
+  it("selected item has selected class", () => {
     renderDropdown({ selectedId: "b" });
     fireEvent.click(screen.getByText("Select"));
-    const selected = screen.getByRole("option", { name: "Beta" });
-    expect(selected).toHaveAttribute("aria-selected", "true");
-    const notSelected = screen.getByRole("option", { name: "Alpha" });
-    expect(notSelected).toHaveAttribute("aria-selected", "false");
+    const menuItems = screen.getAllByRole("menuitem");
+    const beta = menuItems.find((el) => el.textContent === "Beta");
+    expect(beta?.className).toContain("selected");
+    const alpha = menuItems.find((el) => el.textContent === "Alpha");
+    expect(alpha?.className).not.toContain("selected");
   });
 
-  it("empty items array shows no menu even when clicked", () => {
+  it("empty items array keeps menu closed", () => {
     renderDropdown({ items: [] });
     fireEvent.click(screen.getByText("Select"));
-    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(screen.getByText("Select")).toHaveAttribute("aria-expanded", "true");
+    expect(screen.queryAllByRole("menuitem")).toHaveLength(0);
   });
 
   it("custom renderLabel controls item display", () => {
