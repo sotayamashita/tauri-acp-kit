@@ -208,42 +208,7 @@
   display: grid;
 }
 
-.acp-chat-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--chat-accent);
-  font-variant-numeric: tabular-nums;
-}
-
-.acp-chat-status.connecting {
-  animation: pulse 1.5s infinite;
-}
-
-.acp-chat-status.generating {
-  animation: pulse 1s infinite;
-}
-
-.acp-chat-status.error {
-  color: var(--chat-error);
-}
-
-/* Status dot indicator */
-.acp-chat-status-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
-
-.acp-chat-status-dot.ready {
-  background: var(--chat-success);
-}
-
-.acp-chat-status-dot.error {
-  background: var(--chat-error);
-}
+/* StatusBar styles removed — uses shadcn Badge */
 
 .acp-chat-header-right {
   display: flex;
@@ -633,26 +598,7 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
 }
 
-/* ============================================
-   Error
-   ============================================ */
-.acp-chat-error {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 16px;
-  padding: 10px 14px;
-  background: var(--chat-error-bg);
-  border: 1px solid var(--chat-error-border);
-  border-radius: 6px;
-  color: var(--chat-error-text);
-  font-size: 13px;
-  flex-shrink: 0;
-}
-
-.acp-chat-error svg {
-  flex-shrink: 0;
-}
+/* Error styles removed — uses shadcn Alert */
 
 /* ============================================
    Input Area (Fixed at bottom)
@@ -1200,155 +1146,6 @@
   background: var(--chat-scrollbar-hover);
 }
 
-/* --- Agent Setup Status --- */
+/* AgentSetupStatus styles removed — uses shadcn Button */
 
-.agent-setup-status {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  padding: 32px;
-  text-align: center;
-  gap: 16px;
-}
-
-.agent-setup-status-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--chat-text);
-  margin: 0;
-}
-
-.agent-setup-status-description {
-  font-size: 14px;
-  color: var(--chat-text-secondary);
-  margin: 0;
-  max-width: 480px;
-  line-height: 1.5;
-}
-
-.agent-setup-status-command {
-  background: var(--chat-code-bg);
-  border: 1px solid var(--chat-border);
-  border-radius: 6px;
-  padding: 12px 16px;
-  font-size: 13px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  color: var(--chat-text);
-  max-width: 480px;
-  width: 100%;
-  overflow-x: auto;
-  text-align: left;
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
-.agent-setup-status-command code {
-  background: none;
-  padding: 0;
-  font-size: inherit;
-}
-
-.agent-setup-status-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.agent-setup-status-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition:
-    background 0.15s,
-    border-color 0.15s;
-  border: 1px solid var(--chat-border);
-}
-
-.agent-setup-status-btn-secondary {
-  background: var(--chat-surface);
-  color: var(--chat-text);
-}
-
-.agent-setup-status-btn-secondary:hover {
-  background: var(--chat-accent-alpha-08);
-}
-
-.agent-setup-status-btn-primary {
-  background: var(--chat-accent);
-  color: white;
-  border-color: var(--chat-accent);
-}
-
-.agent-setup-status-btn-primary:hover {
-  opacity: 0.9;
-}
-
-.agent-setup-status-btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* --- Download Progress --- */
-
-.download-progress {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  padding: 32px;
-  text-align: center;
-  gap: 12px;
-}
-
-.download-progress-icon {
-  color: var(--chat-accent);
-  animation: downloadPulse 2s ease-in-out infinite;
-}
-
-.download-progress-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--chat-text);
-  margin: 0;
-}
-
-.download-progress-phase {
-  font-size: 14px;
-  color: var(--chat-text-secondary);
-  margin: 0;
-}
-
-.download-progress-bar {
-  width: 100%;
-  max-width: 320px;
-  height: 6px;
-  background: var(--chat-border);
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.download-progress-fill {
-  height: 100%;
-  background: var(--chat-accent);
-  border-radius: 3px;
-  transition: width 0.3s ease;
-}
-
-@keyframes downloadPulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
+/* DownloadProgress styles removed — uses shadcn Progress */

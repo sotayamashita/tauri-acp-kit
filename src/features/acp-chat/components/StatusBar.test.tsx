@@ -3,13 +3,9 @@ import { render, screen } from "@testing-library/react";
 import { StatusBar } from "./StatusBar";
 
 describe("StatusBar", () => {
-  it("renders green dot and sr-only 'Ready' text when status is ready", () => {
+  it("renders sr-only 'Ready' text when status is ready", () => {
     render(<StatusBar connectionStatus="ready" />);
-    const dot = document.querySelector(".acp-chat-status-dot.ready");
-    expect(dot).toBeInTheDocument();
-    const srOnly = document.querySelector(".sr-only");
-    expect(srOnly).toBeInTheDocument();
-    expect(srOnly).toHaveTextContent("Ready");
+    expect(screen.getByText("Ready")).toBeInTheDocument();
   });
 
   it("renders 'Connecting…' when status is connecting", () => {
@@ -17,11 +13,9 @@ describe("StatusBar", () => {
     expect(screen.getByText("Connecting…")).toBeInTheDocument();
   });
 
-  it("renders 'Disconnected' with error dot when status is error", () => {
+  it("renders 'Disconnected' when status is error", () => {
     render(<StatusBar connectionStatus="error" />);
     expect(screen.getByText("Disconnected")).toBeInTheDocument();
-    const dot = document.querySelector(".acp-chat-status-dot.error");
-    expect(dot).toBeInTheDocument();
   });
 
   it("renders 'Downloading…' when status is downloading", () => {

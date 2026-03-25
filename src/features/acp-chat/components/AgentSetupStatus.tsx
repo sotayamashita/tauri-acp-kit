@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { Copy, Check, RefreshCw, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface AgentSetupStatusProps {
   agentId: string;
@@ -56,49 +57,35 @@ export function AgentSetupStatus({
   }, [info.command]);
 
   return (
-    <div className="agent-setup-status">
-      <h2 className="agent-setup-status-title">Setting up {label}</h2>
-      <p className="agent-setup-status-description">{info.description}</p>
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
+      <h2 className="text-lg font-semibold">Setting up {label}</h2>
+      <p className="max-w-[480px] text-sm leading-relaxed text-muted-foreground">
+        {info.description}
+      </p>
 
       {info.command && (
-        <pre className="agent-setup-status-command">
+        <pre className="w-full max-w-[480px] overflow-x-auto rounded-md border bg-muted p-3 text-left font-mono text-[13px] break-all whitespace-pre-wrap">
           <code>{info.command}</code>
         </pre>
       )}
 
-      <div className="agent-setup-status-actions">
+      <div className="mt-2 flex gap-2">
         {onDownload && (
-          <button
-            type="button"
-            className="agent-setup-status-btn agent-setup-status-btn-primary"
-            onClick={onDownload}
-            disabled={isDownloading}
-            aria-label="Download"
-          >
-            <Download size={14} />
+          <Button onClick={onDownload} disabled={isDownloading} aria-label="Download">
+            <Download data-icon="inline-start" />
             {isDownloading ? "Downloading…" : "Download"}
-          </button>
+          </Button>
         )}
         {info.command && (
-          <button
-            type="button"
-            className="agent-setup-status-btn agent-setup-status-btn-secondary"
-            onClick={handleCopy}
-            aria-label="Copy Command"
-          >
-            {copied ? <Check size={14} /> : <Copy size={14} />}
+          <Button variant="outline" onClick={handleCopy} aria-label="Copy Command">
+            {copied ? <Check data-icon="inline-start" /> : <Copy data-icon="inline-start" />}
             {copied ? "Copied!" : "Copy Command"}
-          </button>
+          </Button>
         )}
-        <button
-          type="button"
-          className="agent-setup-status-btn agent-setup-status-btn-secondary"
-          onClick={onCheckAgain}
-          aria-label="Check Again"
-        >
-          <RefreshCw size={14} />
+        <Button variant="outline" onClick={onCheckAgain} aria-label="Check Again">
+          <RefreshCw data-icon="inline-start" />
           Check Again
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -215,9 +215,8 @@ describe("AcpChat — Phase 17 interactions", () => {
     // Wait for ready
     await screen.findByRole("button", { name: /Sonnet 4/i });
 
-    // Should have a ready status dot
-    const statusDot = document.querySelector(".acp-chat-status-dot.ready");
-    expect(statusDot).toBeInTheDocument();
+    // Should have a ready status indicator
+    expect(screen.getByText("Ready")).toBeInTheDocument();
   });
 
   it("status has role=status and aria-live=polite for accessibility", async () => {
