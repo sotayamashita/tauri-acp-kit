@@ -14,27 +14,28 @@ interface ToolCallCardProps {
   onReject?: (toolCallId: string) => void;
 }
 
+const STATUS_DOT = "inline-block size-2.5 shrink-0 rounded-full";
+
 function StatusIcon({ status }: { status: ToolCallStatus }) {
-  const dotBase = "inline-block size-2.5 shrink-0 rounded-full";
   switch (status) {
     case "pending":
       return (
         <span
-          className={cn(dotBase, "bg-[var(--chat-tool-pending)] animate-pulse")}
+          className={cn(STATUS_DOT, "bg-[var(--chat-tool-pending)] animate-pulse")}
           aria-label="Pending"
         />
       );
     case "waiting_confirmation":
       return (
         <span
-          className={cn(dotBase, "bg-[var(--chat-tool-waiting)] animate-pulse")}
+          className={cn(STATUS_DOT, "bg-[var(--chat-tool-waiting)] animate-pulse")}
           aria-label="Waiting for confirmation"
         />
       );
     case "running":
       return (
         <span
-          className={cn(dotBase, "bg-[var(--chat-tool-running)] animate-pulse")}
+          className={cn(STATUS_DOT, "bg-[var(--chat-tool-running)] animate-pulse")}
           aria-label="Running"
         />
       );

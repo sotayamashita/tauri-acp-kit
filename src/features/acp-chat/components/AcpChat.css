@@ -610,27 +610,6 @@
   gap: 8px;
 }
 
-.acp-chat-toolbar-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
-  border-radius: 4px;
-  color: var(--chat-text-secondary);
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.acp-chat-toolbar-btn:hover {
-  background: var(--chat-overlay-subtle);
-}
-
-.acp-chat-toolbar-btn svg {
-  width: 14px;
-  height: 14px;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .acp-chat-scroll-fab,
   .typing-dot,
