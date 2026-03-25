@@ -647,7 +647,6 @@ pub async fn acp_get_cli_version(executable: String) -> Result<Option<String>, E
         Ok(o) if o.status.success() => {
             let stdout = String::from_utf8_lossy(&o.stdout);
             let version = stdout
-                .trim()
                 .split_whitespace()
                 .find(|tok| tok.starts_with(|c: char| c.is_ascii_digit()))
                 .map(|s| s.to_string());
