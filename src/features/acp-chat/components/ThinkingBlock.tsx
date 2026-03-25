@@ -6,7 +6,7 @@ interface ThinkingBlockProps {
 
 export function ThinkingBlock({ text }: ThinkingBlockProps) {
   return (
-    <details className="thinking-block" open>
+    <details className="thinking-block">
       <summary className="thinking-block-summary">Thinking</summary>
       <div className="thinking-block-content">
         <MarkdownText content={text} />

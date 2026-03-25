@@ -23,7 +23,7 @@ describe("ContentBlockRenderer", () => {
     expect(screen.getByText("Let me think...")).toBeTruthy();
     const details = document.querySelector("details.thinking-block");
     expect(details).toBeTruthy();
-    expect(details?.hasAttribute("open")).toBe(true);
+    expect(details?.hasAttribute("open")).toBe(false);
   });
 
   it("renders tool call card with status", () => {

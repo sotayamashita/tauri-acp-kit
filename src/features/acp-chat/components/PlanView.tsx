@@ -1,3 +1,4 @@
+import { Circle, CircleDot, Check } from "lucide-react";
 import type { PlanTask } from "../types";
 
 interface PlanViewProps {
@@ -9,19 +10,19 @@ function TaskStatusIcon({ status }: { status: PlanTask["status"] }) {
     case "pending":
       return (
         <span className="plan-task-icon pending" aria-label="Pending">
-          ○
+          <Circle size={12} />
         </span>
       );
     case "in_progress":
       return (
         <span className="plan-task-icon in-progress" aria-label="In progress">
-          ●
+          <CircleDot size={12} />
         </span>
       );
     case "completed":
       return (
         <span className="plan-task-icon completed" aria-label="Completed">
-          ✓
+          <Check size={12} />
         </span>
       );
   }

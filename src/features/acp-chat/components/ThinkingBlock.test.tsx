@@ -10,11 +10,11 @@ describe("ThinkingBlock", () => {
     expect(summary.tagName.toLowerCase()).toBe("summary");
   });
 
-  it("details element is open by default", () => {
+  it("details element is closed by default", () => {
     render(<ThinkingBlock text="reasoning" />);
     const details = document.querySelector("details.thinking-block");
     expect(details).toBeInTheDocument();
-    expect(details!.hasAttribute("open")).toBe(true);
+    expect(details!.hasAttribute("open")).toBe(false);
   });
 
   it("renders content text inside the block", () => {

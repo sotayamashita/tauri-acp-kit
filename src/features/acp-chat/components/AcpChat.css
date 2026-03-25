@@ -922,7 +922,7 @@
 .thinking-block-content {
   padding: 4px 10px 8px;
   font-size: 0.85rem;
-  opacity: 0.7;
+  color: var(--chat-thinking-text);
 }
 
 /* ============================================
@@ -1074,6 +1074,7 @@
   .tool-call-status-icon.pending,
   .tool-call-status-icon.running,
   .tool-call-status-icon.waiting,
+  .plan-task-icon.in-progress,
   .acp-chat-status.connecting,
   .acp-chat-status.generating,
   .acp-chat-scroll-fab,
@@ -1118,7 +1119,7 @@
 .plan-header {
   padding: 6px 10px;
   font-size: 0.8rem;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--chat-text-secondary);
   border-bottom: 1px solid var(--chat-border);
 }
@@ -1142,8 +1143,10 @@
 }
 
 .plan-task-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
-  font-size: 0.75rem;
 }
 
 .plan-task-icon.completed {
@@ -1152,6 +1155,7 @@
 
 .plan-task-icon.in-progress {
   color: var(--chat-tool-running);
+  animation: pulse 1s ease-in-out infinite;
 }
 
 .plan-task-icon.pending {
