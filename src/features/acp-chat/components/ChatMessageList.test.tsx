@@ -84,7 +84,7 @@ describe("ChatMessageList", () => {
     renderList({ messages });
     const fab = screen.getByLabelText("Scroll to bottom");
     expect(fab).toBeInTheDocument();
-    expect(fab.className).not.toContain("visible");
+    expect(fab.className).toContain("opacity-0");
   });
 
   it("calls scrollIntoView on mount", () => {

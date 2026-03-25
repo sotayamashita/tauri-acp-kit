@@ -4,6 +4,8 @@ import { getMessageText } from "../types";
 import { ContentBlockRenderer } from "./ContentBlockRenderer";
 import { TypingIndicator } from "./TypingIndicator";
 import { ArrowDown } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 interface ChatMessageListProps {
   messages: Message[];
@@ -27,14 +29,12 @@ export function ChatMessageList({
   const containerRef = useRef<HTMLDivElement>(null);
   const [showScrollFab, setShowScrollFab] = useState(false);
 
-  // Auto-scroll on new messages when already at bottom
   useEffect(() => {
     if (!showScrollFab) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, showScrollFab]);
 
-  // IntersectionObserver to detect when user scrolls away from bottom
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
@@ -57,6 +57,8 @@ export function ChatMessageList({
   const lastMessage = messages[messages.length - 1];
   const showTypingIndicator =
     isLoading && lastMessage?.role === "assistant" && lastMessage.blocks.length === 0;
+
+  const fabVisible = showScrollFab && messages.length > 0;
 
   return (
     <div className="acp-chat-messages" ref={containerRef}>
@@ -98,21 +100,22 @@ export function ChatMessageList({
         </div>
       ))}
 
-      {/* Sentinel for IntersectionObserver */}
       <div ref={sentinelRef} aria-hidden="true" />
       <div ref={messagesEndRef} />
 
-      {/* Scroll-to-bottom FAB */}
-      <button
-        type="button"
-        className={`acp-chat-scroll-fab ${showScrollFab && messages.length > 0 ? "visible" : ""}`}
+      <Button
+        variant="outline"
+        size="icon-sm"
+        className={cn(
+          "sticky bottom-2 self-end rounded-full transition-opacity",
+          fabVisible ? "opacity-100" : "pointer-events-none opacity-0",
+        )}
         onClick={scrollToBottom}
         aria-label="Scroll to bottom"
-        title="Scroll to bottom"
-        tabIndex={showScrollFab && messages.length > 0 ? 0 : -1}
+        tabIndex={fabVisible ? 0 : -1}
       >
         <ArrowDown size={16} />
-      </button>
+      </Button>
     </div>
   );
 }

@@ -58,7 +58,7 @@ describe("AcpChat — Phase 17 interactions", () => {
       />,
     );
 
-    const newChatBtn = screen.getByTitle("New Chat (Cmd+Shift+N)");
+    const newChatBtn = screen.getByRole("button", { name: "New Chat" });
     expect(newChatBtn).toBeInTheDocument();
     expect(newChatBtn).toBeDisabled();
   });
@@ -86,7 +86,7 @@ describe("AcpChat — Phase 17 interactions", () => {
     });
 
     // New Chat button should now be enabled
-    const newChatBtn = screen.getByTitle("New Chat (Cmd+Shift+N)");
+    const newChatBtn = screen.getByRole("button", { name: "New Chat" });
     expect(newChatBtn).not.toBeDisabled();
 
     // Click New Chat
@@ -146,9 +146,6 @@ describe("AcpChat — Phase 17 interactions", () => {
     await screen.findByRole("combobox");
     const title = document.querySelector(".acp-chat-header-title");
     expect(title).toHaveTextContent("Claude Code");
-    const tooltip = document.querySelector(".acp-chat-header-info-tooltip");
-    expect(tooltip).toHaveTextContent("ACP adapter");
-    expect(tooltip).toHaveTextContent("1.0.0");
   });
 
   it("empty state shows resolved cwd from session", async () => {
