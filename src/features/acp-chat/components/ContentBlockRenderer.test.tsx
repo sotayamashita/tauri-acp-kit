@@ -16,14 +16,10 @@ describe("ContentBlockRenderer", () => {
     expect(container.innerHTML).toBe("");
   });
 
-  it("renders thinking block as details element", () => {
+  it("renders thinking block with collapsible trigger", () => {
     const block: ContentBlock = { type: "thinking", text: "Let me think..." };
     render(<ContentBlockRenderer block={block} />);
     expect(screen.getByText("Thinking")).toBeTruthy();
-    expect(screen.getByText("Let me think...")).toBeTruthy();
-    const details = document.querySelector("details.thinking-block");
-    expect(details).toBeTruthy();
-    expect(details?.hasAttribute("open")).toBe(false);
   });
 
   it("renders tool call card with status", () => {
@@ -188,10 +184,10 @@ describe("ContentBlockRenderer", () => {
     expect(container.innerHTML).toBe("");
   });
 
-  it("thinking block is keyboard-operable via details/summary", () => {
+  it("thinking block trigger is a button for keyboard operability", () => {
     const block: ContentBlock = { type: "thinking", text: "reasoning text" };
     render(<ContentBlockRenderer block={block} />);
-    const summary = screen.getByText("Thinking");
-    expect(summary.tagName.toLowerCase()).toBe("summary");
+    const trigger = screen.getByText("Thinking");
+    expect(trigger.tagName.toLowerCase()).toBe("button");
   });
 });

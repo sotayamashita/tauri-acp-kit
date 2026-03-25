@@ -1,24 +1,21 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { ThinkingBlock } from "./ThinkingBlock";
 
 describe("ThinkingBlock", () => {
-  it("renders 'Thinking' as summary text", () => {
+  it("renders 'Thinking' as trigger text", () => {
     render(<ThinkingBlock text="some reasoning" />);
-    const summary = screen.getByText("Thinking");
-    expect(summary).toBeInTheDocument();
-    expect(summary.tagName.toLowerCase()).toBe("summary");
+    expect(screen.getByText("Thinking")).toBeInTheDocument();
   });
 
-  it("details element is closed by default", () => {
-    render(<ThinkingBlock text="reasoning" />);
-    const details = document.querySelector("details.thinking-block");
-    expect(details).toBeInTheDocument();
-    expect(details!.hasAttribute("open")).toBe(false);
-  });
-
-  it("renders content text inside the block", () => {
+  it("content is hidden by default", () => {
     render(<ThinkingBlock text="deep reasoning here" />);
+    expect(screen.queryByText("deep reasoning here")).not.toBeInTheDocument();
+  });
+
+  it("shows content when trigger is clicked", () => {
+    render(<ThinkingBlock text="deep reasoning here" />);
+    fireEvent.click(screen.getByText("Thinking"));
     expect(screen.getByText("deep reasoning here")).toBeInTheDocument();
   });
 });

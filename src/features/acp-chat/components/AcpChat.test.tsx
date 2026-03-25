@@ -73,7 +73,7 @@ describe("AcpChat — Phase 17 interactions", () => {
     );
 
     // Wait for session to be ready
-    await screen.findByRole("button", { name: /Sonnet 4/i });
+    await screen.findByRole("combobox");
 
     // Send a message
     const textarea = screen.getByPlaceholderText(/Message Claude Code/i);
@@ -108,7 +108,7 @@ describe("AcpChat — Phase 17 interactions", () => {
     );
 
     // Wait for session ready
-    await screen.findByRole("button", { name: /Sonnet 4/i });
+    await screen.findByRole("combobox");
 
     // Send a message
     const textarea = screen.getByPlaceholderText(/Message Claude Code/i);
@@ -143,7 +143,7 @@ describe("AcpChat — Phase 17 interactions", () => {
       />,
     );
 
-    await screen.findByRole("button", { name: /Sonnet 4/i });
+    await screen.findByRole("combobox");
     const title = document.querySelector(".acp-chat-header-title");
     expect(title).toHaveTextContent("Claude Code");
     const tooltip = document.querySelector(".acp-chat-header-info-tooltip");
@@ -213,7 +213,7 @@ describe("AcpChat — Phase 17 interactions", () => {
     );
 
     // Wait for ready
-    await screen.findByRole("button", { name: /Sonnet 4/i });
+    await screen.findByRole("combobox");
 
     // Should have a ready status indicator
     expect(screen.getByText("Ready")).toBeInTheDocument();

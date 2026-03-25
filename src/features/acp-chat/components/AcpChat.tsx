@@ -1,7 +1,6 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useEffect, useCallback } from "react";
 import { useAcpChat } from "../hooks/useAcpChat";
 import { useTheme } from "../hooks/useTheme";
-import { useClickOutside } from "../hooks/useClickOutside";
 import { deriveConnectionStatus } from "../utils/connectionStatus";
 import { ChatMessageList } from "./ChatMessageList";
 import { ChatInput } from "./ChatInput";
@@ -67,10 +66,6 @@ export function AcpChat({
   });
 
   const { theme, toggleTheme } = useTheme();
-  const [providerOpen, setProviderOpen] = useState(false);
-  const providerRef = useRef<HTMLDivElement>(null);
-  const closeProviderDropdown = useCallback(() => setProviderOpen(false), []);
-  useClickOutside(providerRef, closeProviderDropdown, providerOpen);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -94,7 +89,6 @@ export function AcpChat({
   const handleProviderSelect = useCallback(
     (providerId: string) => {
       onProviderChange?.(providerId);
-      setProviderOpen(false);
     },
     [onProviderChange],
   );
@@ -148,15 +142,11 @@ export function AcpChat({
           >
             {theme === "light" ? <Moon size={14} /> : <Sun size={14} />}
           </button>
-          <div className="acp-chat-dropdown-wrapper" ref={providerRef}>
-            <ProviderDropdown
-              providers={providers ?? []}
-              selectedProviderId={selectedProviderId}
-              isOpen={providerOpen}
-              onToggle={() => setProviderOpen(!providerOpen)}
-              onSelect={handleProviderSelect}
-            />
-          </div>
+          <ProviderDropdown
+            providers={providers ?? []}
+            selectedProviderId={selectedProviderId}
+            onSelect={handleProviderSelect}
+          />
         </div>
       </header>
 
