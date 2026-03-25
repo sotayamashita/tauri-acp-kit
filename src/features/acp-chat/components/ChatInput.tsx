@@ -4,6 +4,7 @@ import type { AcpModel } from "tauri-acp";
 import type { ProviderConfig, ReasoningLevel } from "../providers";
 import { REASONING_LEVELS } from "../providers";
 import { ArrowUp, Square } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { DropdownSelect } from "./DropdownSelect";
 
 // Hoisted to module level to avoid re-creating array on every render (rerender-memo-with-default-value)
@@ -91,26 +92,27 @@ export function ChatInput({
             rows={1}
           />
           {isLoading ? (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={onStop}
-              className="acp-chat-send-btn stop"
+              className="text-destructive hover:text-destructive"
               title="Stop"
               aria-label="Stop generation"
             >
               <Square size={16} />
-            </button>
+            </Button>
           ) : (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={submitMessage}
               disabled={!isReady || !input.trim()}
-              className={`acp-chat-send-btn ${input.trim() ? "active" : ""}`}
               title="Send"
               aria-label="Send message"
             >
               <ArrowUp size={16} />
-            </button>
+            </Button>
           )}
         </div>
 

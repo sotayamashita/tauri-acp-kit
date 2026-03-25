@@ -28,7 +28,7 @@ describe("PlanView", () => {
       { id: "3", title: "Active task", status: "in_progress" },
     ];
     render(<PlanView tasks={tasks} />);
-    const items = document.querySelectorAll(".plan-task");
+    const items = document.querySelectorAll("li[data-status]");
     expect(items[0]).toHaveAttribute("data-status", "completed");
     expect(items[1]).toHaveAttribute("data-status", "pending");
     expect(items[2]).toHaveAttribute("data-status", "in_progress");
