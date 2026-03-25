@@ -16,7 +16,7 @@ function App() {
   };
 
   return (
-    <main className="container">
+    <main className="app-container">
       <AcpChat
         agentSpec={provider.agentSpec}
         providers={PROVIDERS}
