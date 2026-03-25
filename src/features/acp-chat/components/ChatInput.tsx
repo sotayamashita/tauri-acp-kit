@@ -1,9 +1,9 @@
 import type { KeyboardEvent } from "react";
-import { useRef, useState, useCallback } from "react";
+import { useRef, useCallback } from "react";
 import type { AcpModel } from "tauri-acp";
 import type { ProviderConfig, ReasoningLevel } from "../providers";
 import { REASONING_LEVELS } from "../providers";
-import { Play, Square } from "lucide-react";
+import { ArrowUp, Square } from "lucide-react";
 import { DropdownSelect } from "./DropdownSelect";
 
 // Hoisted to module level to avoid re-creating array on every render (rerender-memo-with-default-value)
@@ -43,7 +43,6 @@ export function ChatInput({
   onReasoningSelect,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [isFocused, setIsFocused] = useState(false);
 
   const resizeTextarea = useCallback(() => {
     if (textareaRef.current) {
@@ -75,7 +74,7 @@ export function ChatInput({
 
   return (
     <div className="acp-chat-input-area">
-      <div className={`acp-chat-input-container ${isFocused ? "focused" : ""}`}>
+      <div className="acp-chat-input-container">
         {/* Input Row */}
         <div className="acp-chat-input-row">
           <textarea
@@ -86,15 +85,19 @@ export function ChatInput({
               resizeTextarea();
             }}
             onKeyDown={handleKeyDown}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
             placeholder={isReady ? `Message ${selectedProvider?.label || "AI"}` : "Connecting..."}
             disabled={!isReady}
             className="acp-chat-textarea"
             rows={1}
           />
           {isLoading ? (
-            <button type="button" onClick={onStop} className="acp-chat-send-btn stop" title="Stop">
+            <button
+              type="button"
+              onClick={onStop}
+              className="acp-chat-send-btn stop"
+              title="Stop"
+              aria-label="Stop generation"
+            >
               <Square size={16} />
             </button>
           ) : (
@@ -104,8 +107,9 @@ export function ChatInput({
               disabled={!isReady || !input.trim()}
               className={`acp-chat-send-btn ${input.trim() ? "active" : ""}`}
               title="Send"
+              aria-label="Send message"
             >
-              <Play size={16} />
+              <ArrowUp size={16} />
             </button>
           )}
         </div>

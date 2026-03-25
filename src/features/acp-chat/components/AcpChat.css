@@ -655,7 +655,7 @@
     box-shadow 0.15s;
 }
 
-.acp-chat-input-container.focused {
+.acp-chat-input-container:focus-within {
   border-color: var(--chat-focus-border);
   box-shadow: 0 0 0 2px var(--chat-accent-alpha-10);
 }
@@ -737,7 +737,6 @@
 /* Toolbar Row */
 .acp-chat-toolbar {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   margin-top: 8px;
   padding-top: 8px;
@@ -748,11 +747,6 @@
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.acp-chat-toolbar-right {
-  display: flex;
-  align-items: center;
 }
 
 .acp-chat-dropdown-wrapper {
