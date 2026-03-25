@@ -4,23 +4,12 @@ import { getMessageText } from "../types";
 import { ContentBlockRenderer } from "./ContentBlockRenderer";
 import { TypingIndicator } from "./TypingIndicator";
 import { ArrowDown } from "lucide-react";
-import { formatModelId } from "../format-model-id";
-
-// Hoisted to module level to avoid re-creation on every render (rendering-hoist-jsx)
-const SUGGESTED_PROMPTS = [
-  { label: "Read a file", text: "Read the file src/App.tsx" },
-  { label: "Explain code", text: "Explain this codebase" },
-  { label: "Help me debug", text: "Help me debug this issue" },
-];
 
 interface ChatMessageListProps {
   messages: Message[];
   isReady: boolean;
   isLoading: boolean;
-  providerLabel?: string;
-  modelId?: string | null;
-  modelDisplayName?: string | null;
-  onSuggestClick?: (text: string) => void;
+  cwd?: string;
   onApproveToolCall?: (toolCallId: string) => void;
   onRejectToolCall?: (toolCallId: string) => void;
 }
@@ -29,10 +18,7 @@ export function ChatMessageList({
   messages,
   isReady,
   isLoading,
-  providerLabel,
-  modelId,
-  modelDisplayName,
-  onSuggestClick,
+  cwd,
   onApproveToolCall,
   onRejectToolCall,
 }: ChatMessageListProps) {
@@ -78,22 +64,7 @@ export function ChatMessageList({
         <div className="acp-chat-empty">
           {isReady ? (
             <div className="acp-chat-empty-content">
-              <p className="acp-chat-empty-title">{providerLabel || "Chat"}</p>
-              {modelId ? (
-                <p className="acp-chat-empty-model">{modelDisplayName || formatModelId(modelId)}</p>
-              ) : null}
-              <div className="acp-chat-suggest-chips">
-                {SUGGESTED_PROMPTS.map((prompt) => (
-                  <button
-                    key={prompt.label}
-                    type="button"
-                    className="acp-chat-suggest-chip"
-                    onClick={() => onSuggestClick?.(prompt.text)}
-                  >
-                    {prompt.label}
-                  </button>
-                ))}
-              </div>
+              {cwd ? <p className="acp-chat-empty-cwd">Your working directory is {cwd}</p> : null}
             </div>
           ) : (
             "Waiting for connection…"

@@ -88,6 +88,8 @@ export interface UseAcpChatReturn {
   currentModelName: string | null;
   reasoningLevel: ReasoningLevel | null;
   reasoningLevels: string[] | null;
+  resolvedCwd: string | null;
+  agentVersion: string | null;
   downloadProgress: DownloadProgress | null;
   isDownloading: boolean;
   download: () => Promise<void>;

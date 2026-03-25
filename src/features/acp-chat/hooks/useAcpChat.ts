@@ -169,6 +169,8 @@ export function useAcpChat(options: UseAcpChatOptions): UseAcpChatReturn {
     currentModelName,
     reasoningLevel,
     reasoningLevels: reasoningLevelsMap?.get(effectiveModelId ?? "") ?? null,
+    resolvedCwd: session?.cwd ?? null,
+    agentVersion: session?.agentVersion ?? null,
     downloadProgress,
     isDownloading,
     download,

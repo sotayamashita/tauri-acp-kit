@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect } from "vitest";
+import { render, screen } from "@testing-library/react";
 import { ChatMessageList } from "./ChatMessageList";
 import type { Message } from "../types";
 
@@ -16,10 +16,6 @@ function renderList(overrides: Partial<Parameters<typeof ChatMessageList>[0]> = 
     messages: [] as Message[],
     isReady: true,
     isLoading: false,
-    providerLabel: "Claude Code",
-    modelId: null as string | null,
-    modelDisplayName: null as string | null,
-    onSuggestClick: vi.fn(),
   };
   const props = { ...defaults, ...overrides };
   return { ...render(<ChatMessageList {...props} />), props };
@@ -36,26 +32,14 @@ describe("ChatMessageList", () => {
     expect(screen.getByText("Hello from AI")).toBeInTheDocument();
   });
 
-  it("empty state shows provider label and suggestion chips when isReady=true", () => {
-    renderList({ messages: [], isReady: true, providerLabel: "Claude Code" });
-    const emptyTitle = document.querySelector(".acp-chat-empty-title");
-    expect(emptyTitle).toBeInTheDocument();
-    expect(emptyTitle!.textContent).toBe("Claude Code");
-    expect(screen.getByText("Read a file")).toBeInTheDocument();
-    expect(screen.getByText("Explain code")).toBeInTheDocument();
-    expect(screen.getByText("Help me debug")).toBeInTheDocument();
+  it("empty state shows cwd when provided", () => {
+    renderList({ messages: [], isReady: true, cwd: "/Users/test/project" });
+    expect(screen.getByText("Your working directory is /Users/test/project")).toBeInTheDocument();
   });
 
   it("empty state shows 'Waiting for connection…' when isReady=false", () => {
     renderList({ messages: [], isReady: false });
     expect(screen.getByText("Waiting for connection…")).toBeInTheDocument();
-  });
-
-  it("clicking a suggestion chip calls onSuggestClick with correct text", () => {
-    const onSuggestClick = vi.fn();
-    renderList({ messages: [], isReady: true, onSuggestClick });
-    fireEvent.click(screen.getByText("Read a file"));
-    expect(onSuggestClick).toHaveBeenCalledWith("Read the file src/App.tsx");
   });
 
   it("shows typing indicator when loading and last message is empty assistant", () => {
@@ -70,16 +54,6 @@ describe("ChatMessageList", () => {
     renderList({ messages, isLoading: false });
     const dots = document.querySelectorAll(".typing-dot");
     expect(dots).toHaveLength(0);
-  });
-
-  it("model display name shown when modelId and modelDisplayName provided", () => {
-    renderList({
-      messages: [],
-      isReady: true,
-      modelId: "claude-sonnet-4",
-      modelDisplayName: "Sonnet 4",
-    });
-    expect(screen.getByText("Sonnet 4")).toBeInTheDocument();
   });
 
   it("renders multiple content blocks within a single message", () => {

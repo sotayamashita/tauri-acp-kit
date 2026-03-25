@@ -27,6 +27,8 @@ describe("useAcpChat model support", () => {
       "plugin:acp|acp_spawn_agent": () => "test-agent-id",
       "plugin:acp|acp_start_session": () => ({
         sessionId: "test-session-id",
+        cwd: "/tmp/test",
+        agentVersion: "1.0.0",
         models: mockModels,
         currentModelId: "claude-sonnet-4",
       }),
@@ -129,6 +131,8 @@ describe("useAcpChat compound model deduplication", () => {
       "plugin:acp|acp_spawn_agent": () => "test-agent-id",
       "plugin:acp|acp_start_session": () => ({
         sessionId: "test-session-id",
+        cwd: "/tmp/test",
+        agentVersion: "1.0.0",
         models: codexModels,
         currentModelId: "gpt-5.3-codex/medium",
       }),
@@ -215,6 +219,8 @@ describe("useAcpChat reasoning level", () => {
       "plugin:acp|acp_spawn_agent": () => "test-agent-id",
       "plugin:acp|acp_start_session": () => ({
         sessionId: "test-session-id",
+        cwd: "/tmp/test",
+        agentVersion: "1.0.0",
         models: mockModels,
         currentModelId: "claude-sonnet-4",
       }),
@@ -318,6 +324,8 @@ describe("useAcpChat message operations", () => {
       "plugin:acp|acp_spawn_agent": () => "test-agent-id",
       "plugin:acp|acp_start_session": () => ({
         sessionId: "test-session-id",
+        cwd: "/tmp/test",
+        agentVersion: "1.0.0",
         models: mockModels,
         currentModelId: "claude-sonnet-4",
       }),

@@ -57,6 +57,8 @@ export interface AcpModel {
 
 export interface SessionInfo {
   sessionId: string;
+  cwd: string;
+  agentVersion: string | null;
   models: AcpModel[];
   currentModelId: string | null;
 }

@@ -15,6 +15,8 @@ describe("App", () => {
       "plugin:acp|acp_spawn_agent": () => "test-agent-id",
       "plugin:acp|acp_start_session": () => ({
         sessionId: "test-session-id",
+        cwd: "/tmp/test",
+        agentVersion: "1.0.0",
         models: mockModels,
         currentModelId: "claude-sonnet-4",
       }),
@@ -57,7 +59,7 @@ describe("App", () => {
       expect(localStorage.getItem("acp-provider")).toBe("codex-acp");
     });
     const headerTitle = document.querySelector(".acp-chat-header-title");
-    expect(headerTitle!.textContent).toBe("Codex");
+    expect(headerTitle!.textContent).toContain("Codex");
   });
 
   it("toolbar has no provider dropdown (moved to header)", () => {
@@ -116,7 +118,7 @@ describe("App", () => {
     localStorage.setItem("acp-provider", "codex-acp");
     render(<App />);
     const headerTitle = document.querySelector(".acp-chat-header-title");
-    expect(headerTitle!.textContent).toBe("Codex");
+    expect(headerTitle!.textContent).toContain("Codex");
   });
 
   it("persists reasoning level to localStorage when changed", async () => {
