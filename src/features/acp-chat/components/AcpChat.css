@@ -926,10 +926,15 @@
 
 .tool-call-card[data-status="waiting_confirmation"] {
   border-color: var(--chat-tool-waiting);
+  background: var(--chat-accent-alpha-06);
 }
 
-.tool-call-card[data-status="rejected"] {
-  opacity: 0.7;
+.tool-call-card[data-status="rejected"] .tool-call-header {
+  color: var(--chat-text-secondary);
+}
+
+.tool-call-card[data-status="rejected"] .tool-call-name {
+  color: var(--chat-text-secondary);
 }
 
 .tool-call-header {
@@ -990,13 +995,11 @@
 .tool-call-status-icon.completed {
   background: none;
   color: var(--chat-tool-completed);
-  font-weight: bold;
 }
 
 .tool-call-status-icon.failed {
   background: none;
   color: var(--chat-tool-failed);
-  font-weight: bold;
 }
 
 .tool-call-status-icon.waiting {
@@ -1007,7 +1010,6 @@
 .tool-call-status-icon.rejected {
   background: none;
   color: var(--chat-tool-rejected);
-  font-weight: bold;
 }
 
 .tool-call-actions {
@@ -1018,12 +1020,22 @@
 }
 
 .tool-call-action-btn {
-  padding: 4px 12px;
+  padding: 6px 16px;
   border: 1px solid var(--chat-border);
   border-radius: 4px;
   font-size: 0.8rem;
   font-family: inherit;
   cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s,
+    opacity 0.15s;
+}
+
+.tool-call-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .tool-call-action-btn.approve {
@@ -1032,7 +1044,7 @@
   border-color: var(--chat-tool-completed);
 }
 
-.tool-call-action-btn.approve:hover {
+.tool-call-action-btn.approve:hover:not(:disabled) {
   opacity: 0.9;
 }
 
@@ -1041,7 +1053,7 @@
   color: var(--chat-text);
 }
 
-.tool-call-action-btn.reject:hover {
+.tool-call-action-btn.reject:hover:not(:disabled) {
   background: var(--chat-tool-failed);
   color: #fff;
   border-color: var(--chat-tool-failed);
