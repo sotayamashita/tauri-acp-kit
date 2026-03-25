@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Copy, Check, RefreshCw, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -46,14 +46,27 @@ export function AgentSetupStatus({
   isDownloading = false,
 }: AgentSetupStatusProps) {
   const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(null);
   const info = getInstallInfo(agentId, executable);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
 
   const handleCopy = useCallback(() => {
     if (!info.command) return;
-    navigator.clipboard.writeText(info.command).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    navigator.clipboard.writeText(info.command).then(
+      () => {
+        setCopied(true);
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => setCopied(false), 2000);
+      },
+      () => {
+        /* clipboard write failed — non-secure context or permission denied */
+      },
+    );
   }, [info.command]);
 
   return (
@@ -64,12 +77,12 @@ export function AgentSetupStatus({
       </p>
 
       {info.command && (
-        <pre className="w-full max-w-[480px] overflow-x-auto rounded-md border bg-muted p-3 text-left font-mono text-[13px] break-all whitespace-pre-wrap">
+        <pre className="w-full max-w-[480px] overflow-x-auto rounded-md bg-muted p-3 text-left font-mono text-[13px] break-all whitespace-pre-wrap">
           <code>{info.command}</code>
         </pre>
       )}
 
-      <div className="mt-2 flex gap-2">
+      <div className="flex gap-2">
         {onDownload && (
           <Button onClick={onDownload} disabled={isDownloading} aria-label="Download">
             <Download data-icon="inline-start" />

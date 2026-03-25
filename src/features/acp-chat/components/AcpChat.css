@@ -1,21 +1,6 @@
 /* ACP Chat - Zed AI Style */
 
 /* ============================================
-   Utilities
-   ============================================ */
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border-width: 0;
-}
-
-/* ============================================
    Theme System
    ============================================ */
 :root,
@@ -207,8 +192,6 @@
 .acp-chat-header-info:hover .acp-chat-header-info-tooltip {
   display: grid;
 }
-
-/* StatusBar styles removed — uses shadcn Badge */
 
 .acp-chat-header-right {
   display: flex;
@@ -597,8 +580,6 @@
 .code-block code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
 }
-
-/* Error styles removed — uses shadcn Alert */
 
 /* ============================================
    Input Area (Fixed at bottom)
@@ -1039,8 +1020,6 @@
   .tool-call-status-icon.running,
   .tool-call-status-icon.waiting,
   .plan-task-icon.in-progress,
-  .acp-chat-status.connecting,
-  .acp-chat-status.generating,
   .acp-chat-scroll-fab,
   .typing-dot,
   .acp-chat-message {
@@ -1145,7 +1124,3 @@
 .acp-chat-messages::-webkit-scrollbar-thumb:hover {
   background: var(--chat-scrollbar-hover);
 }
-
-/* AgentSetupStatus styles removed — uses shadcn Button */
-
-/* DownloadProgress styles removed — uses shadcn Progress */

@@ -5,11 +5,10 @@ import type { ConnectionStatus } from "../utils/connectionStatus";
 export function StatusBar({ connectionStatus }: { connectionStatus: ConnectionStatus }) {
   return (
     <Badge
-      variant="outline"
+      variant="ghost"
       className={cn(
         "gap-1.5 text-xs font-normal tabular-nums",
-        connectionStatus === "connecting" && "animate-pulse",
-        connectionStatus === "generating" && "animate-pulse",
+        (connectionStatus === "connecting" || connectionStatus === "generating") && "animate-pulse",
         connectionStatus === "error" && "text-destructive",
       )}
       role="status"
@@ -28,7 +27,7 @@ export function StatusBar({ connectionStatus }: { connectionStatus: ConnectionSt
         </>
       ) : (
         <>
-          <span className="size-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+          <span className="size-1.5 rounded-full bg-[var(--chat-success)]" aria-hidden="true" />
           <span className="sr-only">Ready</span>
         </>
       )}
