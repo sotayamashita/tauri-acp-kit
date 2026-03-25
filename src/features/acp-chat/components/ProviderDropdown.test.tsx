@@ -19,7 +19,7 @@ const mockProviders: ProviderConfig[] = [
 ];
 
 describe("ProviderDropdown", () => {
-  it("renders the + button", () => {
+  it("renders a labeled button with selected provider name", () => {
     render(
       <ProviderDropdown
         providers={mockProviders}
@@ -29,10 +29,13 @@ describe("ProviderDropdown", () => {
         onSelect={vi.fn()}
       />,
     );
-    expect(screen.getByTitle("Switch provider")).toBeInTheDocument();
+    const btn = screen.getByRole("button", { name: /Claude Code/ });
+    expect(btn).toBeInTheDocument();
+    expect(btn).toHaveAttribute("aria-haspopup", "menu");
+    expect(btn).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("shows provider list when isOpen is true", () => {
+  it("renders menu items when isOpen is true", () => {
     render(
       <ProviderDropdown
         providers={mockProviders}
@@ -42,21 +45,24 @@ describe("ProviderDropdown", () => {
         onSelect={vi.fn()}
       />,
     );
-    expect(screen.getByText("Claude Code")).toBeInTheDocument();
-    expect(screen.getByText("Codex")).toBeInTheDocument();
+    const items = screen.getAllByRole("menuitem");
+    expect(items).toHaveLength(2);
+    expect(items[0]).toHaveTextContent("Claude Code");
+    expect(items[1]).toHaveTextContent("Codex");
   });
 
-  it("does not show provider list when isOpen is false", () => {
+  it("sets aria-expanded to true when open", () => {
     render(
       <ProviderDropdown
         providers={mockProviders}
         selectedProviderId="claude-code-acp"
-        isOpen={false}
+        isOpen={true}
         onToggle={vi.fn()}
         onSelect={vi.fn()}
       />,
     );
-    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    const btn = screen.getByRole("button", { name: /Claude Code/ });
+    expect(btn).toHaveAttribute("aria-expanded", "true");
   });
 
   it("clicking a provider calls onSelect with provider id", () => {
@@ -74,7 +80,7 @@ describe("ProviderDropdown", () => {
     expect(onSelect).toHaveBeenCalledWith("codex-acp");
   });
 
-  it("marks selected provider with aria-selected", () => {
+  it("marks selected provider with selected class", () => {
     render(
       <ProviderDropdown
         providers={mockProviders}
@@ -84,7 +90,8 @@ describe("ProviderDropdown", () => {
         onSelect={vi.fn()}
       />,
     );
-    const selected = screen.getByRole("option", { selected: true });
-    expect(selected).toHaveTextContent("Claude Code");
+    const items = screen.getAllByRole("menuitem");
+    expect(items[0].className).toContain("selected");
+    expect(items[1].className).not.toContain("selected");
   });
 });

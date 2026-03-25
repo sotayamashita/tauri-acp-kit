@@ -109,6 +109,7 @@ export function AcpChat({
           </span>
           <StatusBar connectionStatus={connectionStatus} />
         </div>
+
         <div className="acp-chat-header-right">
           <button
             type="button"

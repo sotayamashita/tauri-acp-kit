@@ -144,7 +144,8 @@ describe("AcpChat — Phase 17 interactions", () => {
     );
 
     await screen.findByRole("button", { name: /Sonnet 4/i });
-    expect(screen.getByText("Claude Code")).toBeInTheDocument();
+    const title = document.querySelector(".acp-chat-header-title");
+    expect(title).toHaveTextContent("Claude Code");
     expect(screen.getByText("(1.0.0)")).toBeInTheDocument();
   });
 

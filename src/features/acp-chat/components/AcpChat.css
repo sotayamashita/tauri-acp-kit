@@ -1,6 +1,21 @@
 /* ACP Chat - Zed AI Style */
 
 /* ============================================
+   Utilities
+   ============================================ */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* ============================================
    Theme System
    ============================================ */
 :root,
@@ -247,6 +262,42 @@
 .acp-chat-header-btn:focus-visible {
   outline: 2px solid var(--chat-accent);
   outline-offset: 2px;
+}
+
+/* Provider label button */
+.acp-chat-provider-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--chat-accent);
+  cursor: pointer;
+  transition: background 0.15s;
+  touch-action: manipulation;
+}
+
+.acp-chat-provider-btn:hover {
+  background: var(--chat-accent-alpha-10);
+}
+
+.acp-chat-provider-btn:focus-visible {
+  outline: 2px solid var(--chat-accent);
+  outline-offset: 2px;
+}
+
+.acp-chat-provider-btn svg {
+  opacity: 0.6;
+  transition: transform 0.15s;
+}
+
+.acp-chat-provider-btn[aria-expanded="true"] svg {
+  transform: rotate(180deg);
 }
 
 @keyframes pulse {
@@ -746,7 +797,7 @@
   z-index: 10;
 }
 
-/* Header provider dropdown opens downward */
+/* Header provider dropdown opens downward with transition */
 .acp-chat-provider-dropdown {
   bottom: auto;
   top: 100%;
@@ -754,6 +805,18 @@
   left: auto;
   margin-bottom: 0;
   margin-top: 4px;
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  transition:
+    opacity 0.15s,
+    transform 0.15s;
+}
+
+.acp-chat-provider-dropdown.open {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
 }
 
 .acp-chat-dropdown-item {
@@ -990,6 +1053,11 @@
   .typing-dot,
   .acp-chat-message {
     animation: none;
+  }
+
+  .acp-chat-provider-dropdown,
+  .acp-chat-provider-btn svg {
+    transition: none;
   }
 }
 

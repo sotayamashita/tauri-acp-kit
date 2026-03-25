@@ -38,21 +38,25 @@ describe("App", () => {
     expect(screen.queryByText("New Thread")).not.toBeInTheDocument();
   });
 
-  it("+ button in header opens provider dropdown", () => {
+  it("provider button in header opens provider dropdown", () => {
     render(<App />);
-    const plusBtn = screen.getByTitle("Switch provider");
-    fireEvent.click(plusBtn);
+    const providerBtn = screen.getByRole("button", {
+      name: /Switch provider, current: Claude Code/i,
+    });
+    fireEvent.click(providerBtn);
 
-    expect(screen.getByRole("option", { name: /Claude Code/i })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: /Codex/i })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /Claude Code/i })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /Codex/i })).toBeInTheDocument();
   });
 
   it("selecting a provider from header dropdown calls onProviderChange", async () => {
     render(<App />);
-    const plusBtn = screen.getByTitle("Switch provider");
-    fireEvent.click(plusBtn);
+    const providerBtn = screen.getByRole("button", {
+      name: /Switch provider, current: Claude Code/i,
+    });
+    fireEvent.click(providerBtn);
 
-    const codexOption = screen.getByRole("option", { name: /Codex/i });
+    const codexOption = screen.getByRole("menuitem", { name: /Codex/i });
     fireEvent.click(codexOption);
 
     await waitFor(() => {
@@ -103,10 +107,12 @@ describe("App", () => {
     render(<App />);
     expect(localStorage.getItem("acp-provider")).toBeNull();
 
-    const plusBtn = screen.getByTitle("Switch provider");
-    fireEvent.click(plusBtn);
+    const providerBtn = screen.getByRole("button", {
+      name: /Switch provider, current: Claude Code/i,
+    });
+    fireEvent.click(providerBtn);
 
-    const codexOption = screen.getByRole("option", { name: /Codex/i });
+    const codexOption = screen.getByRole("menuitem", { name: /Codex/i });
     fireEvent.click(codexOption);
 
     await waitFor(() => {

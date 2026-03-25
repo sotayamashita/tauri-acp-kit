@@ -15,7 +15,10 @@ export function StatusBar({ connectionStatus }: { connectionStatus: ConnectionSt
           Disconnected
         </>
       ) : (
-        <span className="acp-chat-status-dot ready" aria-hidden="true" />
+        <>
+          <span className="acp-chat-status-dot ready" aria-hidden="true" />
+          <span className="sr-only">Ready</span>
+        </>
       )}
     </span>
   );
