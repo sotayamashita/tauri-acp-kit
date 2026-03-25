@@ -106,7 +106,10 @@ export function AcpChat({
                 <Tooltip>
                   <TooltipTrigger
                     render={
-                      <span className="ml-1 inline-flex cursor-default items-center text-muted-foreground">
+                      <span
+                        tabIndex={0}
+                        className="ml-1 inline-flex cursor-default items-center text-muted-foreground"
+                      >
                         <Info size={13} />
                       </span>
                     }
