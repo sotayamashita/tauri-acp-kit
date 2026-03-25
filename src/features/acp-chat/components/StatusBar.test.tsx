@@ -3,10 +3,13 @@ import { render, screen } from "@testing-library/react";
 import { StatusBar } from "./StatusBar";
 
 describe("StatusBar", () => {
-  it("renders green dot when status is ready", () => {
+  it("renders green dot and sr-only 'Ready' text when status is ready", () => {
     render(<StatusBar connectionStatus="ready" />);
     const dot = document.querySelector(".acp-chat-status-dot.ready");
     expect(dot).toBeInTheDocument();
+    const srOnly = document.querySelector(".sr-only");
+    expect(srOnly).toBeInTheDocument();
+    expect(srOnly).toHaveTextContent("Ready");
   });
 
   it("renders 'Connecting…' when status is connecting", () => {

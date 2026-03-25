@@ -6,6 +6,7 @@ import {
   appendThinkingToLastAssistant,
   appendToolCallToLastAssistant,
   updateToolCallStatus,
+  setPermissionRequest,
   updateOrAppendPlan,
 } from "./messageUpdaters";
 
@@ -37,12 +38,24 @@ export function useAcpEventListeners(
         setMessages((prev) => appendThinkingToLastAssistant(prev, streamingThoughtRef.current));
       }),
       session.onToolCall((event) => {
+        const inputStr = event.input != null ? JSON.stringify(event.input, null, 2) : undefined;
         setMessages((prev) =>
-          appendToolCallToLastAssistant(prev, event.tool_call_id, event.tool_name, event.status),
+          appendToolCallToLastAssistant(prev, event.tool_call_id, event.tool_name, inputStr),
         );
       }),
       session.onToolCallUpdate((event) => {
-        setMessages((prev) => updateToolCallStatus(prev, event.tool_call_id, event.status));
+        const outputStr =
+          event.content != null ? JSON.stringify(event.content, null, 2) : undefined;
+        setMessages((prev) =>
+          updateToolCallStatus(prev, event.tool_call_id, event.status, outputStr),
+        );
+      }),
+      session.onPermissionRequest((event) => {
+        const inputStr =
+          event.raw_input != null ? JSON.stringify(event.raw_input, null, 2) : undefined;
+        setMessages((prev) =>
+          setPermissionRequest(prev, event.tool_call_id, event.request_id, inputStr),
+        );
       }),
       session.onPlanUpdate((event) => {
         const tasks = Array.isArray(event.tasks) ? event.tasks : [];

@@ -1,6 +1,7 @@
-import { useState, useCallback, useMemo } from "react";
-import type { Message, UseAcpChatOptions, UseAcpChatReturn } from "../types";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import type { Message, ToolCallStatus, UseAcpChatOptions, UseAcpChatReturn } from "../types";
 import { parseReasoningModels } from "../utils/parseReasoningModels";
+import { setToolCallStatus } from "./messageUpdaters";
 import { useAcpSession } from "./useAcpSession";
 import { useAgentDownload } from "./useAgentDownload";
 import { useReasoningLevel } from "./useReasoningLevel";
@@ -94,6 +95,7 @@ export function useAcpChat(options: UseAcpChatOptions): UseAcpChatReturn {
     setInput("");
     setError(null);
     streamingContentRef.current = "";
+    permissionRequestMap.current.clear();
   }, [setMessages, setError, streamingContentRef]);
 
   const handleSetModel = useCallback(
@@ -103,6 +105,42 @@ export function useAcpChat(options: UseAcpChatOptions): UseAcpChatReturn {
       setCurrentModelId(modelId);
     },
     [session, getWireModelId, setCurrentModelId],
+  );
+
+  const permissionRequestMap = useRef(new Map<string, number>());
+
+  useEffect(() => {
+    if (!session) return;
+    const promise = session.onPermissionRequest((event) => {
+      permissionRequestMap.current.set(event.tool_call_id, event.request_id);
+    });
+    return () => {
+      promise.then((unlisten) => unlisten());
+    };
+  }, [session]);
+
+  const respondToPermission = useCallback(
+    (toolCallId: string, optionId: string, uiStatus: ToolCallStatus) => {
+      const requestId = permissionRequestMap.current.get(toolCallId);
+      if (requestId != null && session) {
+        session.respondPermission(requestId, optionId).catch((err: unknown) => {
+          console.error("Failed to send permission response:", err);
+        });
+        permissionRequestMap.current.delete(toolCallId);
+      }
+      setMessages((prev) => setToolCallStatus(prev, toolCallId, uiStatus));
+    },
+    [session, setMessages],
+  );
+
+  const approveToolCall = useCallback(
+    (toolCallId: string) => respondToPermission(toolCallId, "allow", "running"),
+    [respondToPermission],
+  );
+
+  const rejectToolCall = useCallback(
+    (toolCallId: string) => respondToPermission(toolCallId, "reject", "rejected"),
+    [respondToPermission],
   );
 
   const handleSetReasoningLevel = useCallback(
@@ -131,9 +169,13 @@ export function useAcpChat(options: UseAcpChatOptions): UseAcpChatReturn {
     currentModelName,
     reasoningLevel,
     reasoningLevels: reasoningLevelsMap?.get(effectiveModelId ?? "") ?? null,
+    resolvedCwd: session?.cwd ?? null,
+    agentVersion: session?.agentVersion ?? null,
     downloadProgress,
     isDownloading,
     download,
+    approveToolCall,
+    rejectToolCall,
     append,
     stop,
     reset,

@@ -26,6 +26,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::acp_send_prompt,
             commands::acp_cancel,
             commands::acp_set_model,
+            commands::acp_respond_permission,
             commands::acp_terminate_agent,
             commands::acp_check_agent_available,
             commands::acp_check_agent,

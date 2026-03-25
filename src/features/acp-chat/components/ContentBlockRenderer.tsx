@@ -6,9 +6,15 @@ import { PlanView } from "./PlanView";
 
 interface ContentBlockRendererProps {
   block: ContentBlock;
+  onApproveToolCall?: (toolCallId: string) => void;
+  onRejectToolCall?: (toolCallId: string) => void;
 }
 
-export function ContentBlockRenderer({ block }: ContentBlockRendererProps) {
+export function ContentBlockRenderer({
+  block,
+  onApproveToolCall,
+  onRejectToolCall,
+}: ContentBlockRendererProps) {
   switch (block.type) {
     case "text":
       return block.text ? <MarkdownText content={block.text} /> : null;
@@ -20,7 +26,10 @@ export function ContentBlockRenderer({ block }: ContentBlockRendererProps) {
           toolCallId={block.toolCallId}
           title={block.title}
           status={block.status}
+          input={block.input}
           output={block.output}
+          onApprove={onApproveToolCall}
+          onReject={onRejectToolCall}
         />
       );
     case "plan":

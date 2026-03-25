@@ -13,6 +13,8 @@ describe("AcpAgent", () => {
       "plugin:acp|acp_spawn_agent": () => "test-agent-id",
       "plugin:acp|acp_start_session": () => ({
         sessionId: "test-session-id",
+        cwd: "/tmp/test",
+        agentVersion: "1.0.0",
         models: mockModels,
         currentModelId: "claude-sonnet-4",
       }),
@@ -63,6 +65,8 @@ describe("AcpSession with models", () => {
       "plugin:acp|acp_spawn_agent": () => "test-agent-id",
       "plugin:acp|acp_start_session": () => ({
         sessionId: "test-session-id",
+        cwd: "/tmp/test",
+        agentVersion: "1.0.0",
         models: mockModels,
         currentModelId: "claude-sonnet-4",
       }),

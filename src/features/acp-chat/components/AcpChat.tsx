@@ -49,6 +49,10 @@ export function AcpChat({
     currentModelName,
     reasoningLevel,
     reasoningLevels,
+    resolvedCwd,
+    agentVersion,
+    approveToolCall,
+    rejectToolCall,
     append,
     stop,
     reset,
@@ -85,8 +89,6 @@ export function AcpChat({
     isLoading,
   });
 
-  const handleSuggestClick = useCallback((text: string) => setInput(text), [setInput]);
-
   const handleProviderSelect = useCallback(
     (providerId: string) => {
       onProviderChange?.(providerId);
@@ -99,9 +101,15 @@ export function AcpChat({
     <div className="acp-chat" data-theme={theme}>
       <header className="acp-chat-header">
         <div className="acp-chat-header-left">
-          <span className="acp-chat-header-title">{selectedProvider?.label || "Chat"}</span>
+          <span className="acp-chat-header-title">
+            {selectedProvider?.label || "Chat"}
+            {agentVersion ? (
+              <span className="acp-chat-header-version">({agentVersion})</span>
+            ) : null}
+          </span>
           <StatusBar connectionStatus={connectionStatus} />
         </div>
+
         <div className="acp-chat-header-right">
           <button
             type="button"
@@ -157,10 +165,9 @@ export function AcpChat({
           messages={messages}
           isReady={isReady}
           isLoading={isLoading}
-          providerLabel={selectedProvider?.label}
-          modelId={currentModelId}
-          modelDisplayName={currentModelName}
-          onSuggestClick={handleSuggestClick}
+          cwd={resolvedCwd ?? undefined}
+          onApproveToolCall={approveToolCall}
+          onRejectToolCall={rejectToolCall}
         />
       )}
 

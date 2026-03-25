@@ -5,17 +5,23 @@ import type { AcpEvent, AcpModel, StopReason, UnlistenFn } from "./types";
 export class AcpSession {
   private _id: string;
   private _agentId: string;
+  private _cwd: string;
+  private _agentVersion: string | null;
   private _models: AcpModel[];
   private _currentModelId: string | null;
 
   constructor(
     id: string,
     agentId: string,
+    cwd: string,
+    agentVersion: string | null,
     models: AcpModel[] = [],
     currentModelId: string | null = null,
   ) {
     this._id = id;
     this._agentId = agentId;
+    this._cwd = cwd;
+    this._agentVersion = agentVersion;
     this._models = models;
     this._currentModelId = currentModelId;
   }
@@ -26,6 +32,14 @@ export class AcpSession {
 
   get agentId(): string {
     return this._agentId;
+  }
+
+  get cwd(): string {
+    return this._cwd;
+  }
+
+  get agentVersion(): string | null {
+    return this._agentVersion;
   }
 
   get models(): AcpModel[] {
@@ -110,6 +124,20 @@ export class AcpSession {
     return this.onSessionEvent(
       "tool_call_update",
       (event) => (event.type === "tool_call_update" ? event : undefined),
+      callback,
+    );
+  }
+
+  async respondPermission(requestId: number, optionId: string): Promise<void> {
+    return commands.respondPermission(this._id, requestId, optionId);
+  }
+
+  async onPermissionRequest(
+    callback: (event: Extract<AcpEvent, { type: "permission_request" }>) => void,
+  ): Promise<UnlistenFn> {
+    return this.onSessionEvent(
+      "permission_request",
+      (event) => (event.type === "permission_request" ? event : undefined),
       callback,
     );
   }

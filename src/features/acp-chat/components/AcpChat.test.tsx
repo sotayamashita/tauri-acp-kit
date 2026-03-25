@@ -31,6 +31,8 @@ describe("AcpChat — Phase 17 interactions", () => {
       "plugin:acp|acp_spawn_agent": () => "test-agent-id",
       "plugin:acp|acp_start_session": () => ({
         sessionId: "test-session-id",
+        cwd: "/Users/test/project",
+        agentVersion: "1.0.0",
         models: mockModels,
         currentModelId: "claude-sonnet-4",
       }),
@@ -132,7 +134,7 @@ describe("AcpChat — Phase 17 interactions", () => {
 
   // --- Step 17.3: Empty state ---
 
-  it("empty state shows provider name and suggested prompts when ready", async () => {
+  it("header shows provider name and version when ready", async () => {
     render(
       <AcpChat
         agentSpec={mockProviders[0].agentSpec}
@@ -141,38 +143,23 @@ describe("AcpChat — Phase 17 interactions", () => {
       />,
     );
 
-    // Wait for session ready
     await screen.findByRole("button", { name: /Sonnet 4/i });
-
-    // Empty state should show provider name (also in header, so use class selector)
-    const emptyTitle = document.querySelector(".acp-chat-empty-title");
-    expect(emptyTitle).toBeInTheDocument();
-    expect(emptyTitle!.textContent).toBe("Claude Code");
-
-    // Should show suggested prompts
-    expect(screen.getByText("Read a file")).toBeInTheDocument();
-    expect(screen.getByText("Explain code")).toBeInTheDocument();
-    expect(screen.getByText("Help me debug")).toBeInTheDocument();
+    const title = document.querySelector(".acp-chat-header-title");
+    expect(title).toHaveTextContent("Claude Code");
+    expect(screen.getByText("(1.0.0)")).toBeInTheDocument();
   });
 
-  it("clicking a prompt chip populates the input", async () => {
+  it("empty state shows resolved cwd from session", async () => {
     render(
       <AcpChat
         agentSpec={mockProviders[0].agentSpec}
+        cwd="."
         providers={mockProviders}
         selectedProviderId="claude-code-acp"
       />,
     );
 
-    // Wait for session ready
-    await screen.findByRole("button", { name: /Sonnet 4/i });
-
-    // Click "Read a file" chip
-    fireEvent.click(screen.getByText("Read a file"));
-
-    // Input should be populated
-    const textarea = screen.getByPlaceholderText(/Message Claude Code/i) as HTMLTextAreaElement;
-    expect(textarea.value).toBe("Read the file src/App.tsx");
+    await screen.findByText("Your working directory is /Users/test/project");
   });
 
   it("empty state shows 'Waiting for connection…' before ready", () => {

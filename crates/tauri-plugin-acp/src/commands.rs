@@ -12,6 +12,8 @@ use tauri::{AppHandle, Runtime, State};
 #[serde(rename_all = "camelCase")]
 pub struct SessionInfoResponse {
     pub session_id: String,
+    pub cwd: String,
+    pub agent_version: Option<String>,
     pub models: Vec<AcpModelInfo>,
     pub current_model_id: Option<String>,
 }
@@ -255,14 +257,13 @@ async fn send_authenticate(
 }
 
 /// Send the ACP `session/new` request and return the response.
+/// The caller must pass an already-resolved absolute `cwd`.
 async fn send_create_session(
     handle: &crate::process::AgentHandle,
     cwd: &str,
 ) -> Result<JsonRpcResponse, Error> {
-    let abs_cwd = resolve_absolute_cwd(cwd);
-
     let session_params = serde_json::json!({
-        "cwd": abs_cwd,
+        "cwd": cwd,
         "mcpServers": []
     });
 
@@ -290,14 +291,36 @@ pub async fn acp_start_session<R: Runtime>(
 ) -> Result<SessionInfoResponse, Error> {
     let handle = state.get_agent_handle(&agent_id).await?;
 
-    let response = send_initialize(&handle).await?;
-    if let Some(ref result) = response.result {
+    let init_response = send_initialize(&handle).await?;
+    let agent_version = init_response
+        .result
+        .as_ref()
+        .and_then(|r| {
+            r.get("agentInfo")
+                .or_else(|| r.get("agent_info"))
+                .and_then(|info| info.get("version"))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        })
+        // Fallback: extract version from userAgent string (e.g. "codex/0.91.0")
+        .or_else(|| {
+            init_response.result.as_ref().and_then(|r| {
+                r.get("userAgent")
+                    .or_else(|| r.get("user_agent"))
+                    .and_then(|v| v.as_str())
+                    .and_then(|ua| ua.split('/').nth(1))
+                    .map(|s| s.to_string())
+            })
+        });
+
+    if let Some(ref result) = init_response.result {
         if let Err(e) = send_authenticate(&handle, result).await {
             tracing::warn!(agent_id = %agent_id, "authenticate() failed (non-fatal): {}", e);
         }
     }
 
-    let session_response = send_create_session(&handle, &cwd).await?;
+    let abs_cwd = resolve_absolute_cwd(&cwd);
+    let session_response = send_create_session(&handle, &abs_cwd).await?;
     let parsed = parse_session_response(session_response.result.as_ref());
 
     tracing::info!(
@@ -311,7 +334,7 @@ pub async fn acp_start_session<R: Runtime>(
     let session = Session {
         id: parsed.session_id.clone(),
         agent_id: agent_id.clone(),
-        cwd,
+        cwd: abs_cwd.clone(),
         model: parsed.model,
         available_models: parsed.available_models.clone(),
         current_model_id: parsed.current_model_id.clone(),
@@ -329,6 +352,8 @@ pub async fn acp_start_session<R: Runtime>(
 
     Ok(SessionInfoResponse {
         session_id: parsed.session_id,
+        cwd: abs_cwd,
+        agent_version,
         models: parsed.available_models,
         current_model_id: parsed.current_model_id,
     })
@@ -492,6 +517,41 @@ pub async fn acp_set_model<R: Runtime>(
     state.update_session_model(&session_id, &model_id).await?;
 
     tracing::info!(session_id = %session_id, model_id = %model_id, "Model changed");
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn acp_respond_permission<R: Runtime>(
+    _app: AppHandle<R>,
+    state: State<'_, PluginState>,
+    session_id: String,
+    request_id: i64,
+    option_id: String,
+) -> Result<(), Error> {
+    let session = state.get_session(&session_id).await?;
+    let handle = state.get_agent_handle(&session.agent_id).await?;
+
+    let response = crate::protocol::JsonRpcResponse {
+        jsonrpc: Some("2.0".to_string()),
+        id: crate::protocol::JsonRpcId::Number(request_id),
+        result: Some(serde_json::json!({
+            "outcome": {
+                "outcome": "selected",
+                "optionId": option_id
+            }
+        })),
+        error: None,
+    };
+
+    handle.send_response(response).await?;
+
+    tracing::info!(
+        session_id = %session_id,
+        request_id = request_id,
+        option_id = %option_id,
+        "Permission response sent"
+    );
 
     Ok(())
 }

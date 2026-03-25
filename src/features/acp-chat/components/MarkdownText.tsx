@@ -3,6 +3,7 @@ import { memo, useState, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { Copy, Check } from "lucide-react";
 
 // Theme-aware Prism styles using CSS custom properties
 // Colors adapt automatically via --chat-prism-* variables defined in AcpChat.css
@@ -93,30 +94,7 @@ function CodeBlock({ language, children }: CodeBlockProps) {
           className="code-copy-button"
           title={copied ? "Copied!" : "Copy"}
         >
-          {copied ? (
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              width="14"
-              height="14"
-            >
-              <path d="M20 6L9 17l-5-5" />
-            </svg>
-          ) : (
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              width="14"
-              height="14"
-            >
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-            </svg>
-          )}
+          {copied ? <Check size={14} /> : <Copy size={14} />}
         </button>
       </div>
       <SyntaxHighlighter style={customTheme} language={language || "text"} PreTag="div">

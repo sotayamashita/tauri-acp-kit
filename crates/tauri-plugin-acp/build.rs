@@ -4,6 +4,7 @@ const COMMANDS: &[&str] = &[
     "acp_send_prompt",
     "acp_cancel",
     "acp_set_model",
+    "acp_respond_permission",
     "acp_terminate_agent",
     "acp_check_agent_available",
     "acp_check_agent",

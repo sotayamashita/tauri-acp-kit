@@ -5,6 +5,7 @@ import {
   appendThinkingToLastAssistant,
   appendToolCallToLastAssistant,
   updateToolCallStatus,
+  setToolCallStatus,
   updateOrAppendPlan,
   mapAcpStatus,
   updateLastAssistant,
@@ -97,22 +98,39 @@ describe("messageUpdaters", () => {
   });
 
   describe("appendToolCallToLastAssistant", () => {
-    it("appends tool call block to assistant message", () => {
+    it("appends tool call block with waiting_confirmation status", () => {
       const messages: Message[] = [makeAssistantMessage([{ type: "text", text: "let me check" }])];
-      const result = appendToolCallToLastAssistant(messages, "tc-1", "Read", "pending");
+      const result = appendToolCallToLastAssistant(messages, "tc-1", "Read");
       expect(result[0].blocks).toHaveLength(2);
       expect(result[0].blocks[1]).toMatchObject({
         type: "tool_call",
         toolCallId: "tc-1",
         title: "Read",
-        status: "pending",
+        status: "waiting_confirmation",
       });
     });
 
-    it("maps in_progress status to running", () => {
+    it("always sets waiting_confirmation status", () => {
       const messages: Message[] = [makeAssistantMessage()];
-      const result = appendToolCallToLastAssistant(messages, "tc-1", "Bash", "in_progress");
-      expect(result[0].blocks[0]).toMatchObject({ status: "running" });
+      const result = appendToolCallToLastAssistant(messages, "tc-1", "Bash");
+      expect(result[0].blocks[0]).toMatchObject({ status: "waiting_confirmation" });
+    });
+
+    it("stores input when provided", () => {
+      const messages: Message[] = [makeAssistantMessage()];
+      const result = appendToolCallToLastAssistant(messages, "tc-1", "Read", '{"file": "test.ts"}');
+      expect(result[0].blocks[0]).toMatchObject({
+        input: '{"file": "test.ts"}',
+      });
+    });
+
+    it("input is undefined when not provided", () => {
+      const messages: Message[] = [makeAssistantMessage()];
+      const result = appendToolCallToLastAssistant(messages, "tc-1", "Read");
+      expect(result[0].blocks[0]).toMatchObject({
+        type: "tool_call",
+        input: undefined,
+      });
     });
   });
 
@@ -158,6 +176,114 @@ describe("messageUpdaters", () => {
       const result = updateToolCallStatus(messages, "tc-1", "completed");
       expect(result[0].blocks[1]).toMatchObject({ toolCallId: "tc-2", status: "pending" });
     });
+
+    it("sets output when provided", () => {
+      const messages: Message[] = [
+        makeAssistantMessage([
+          {
+            type: "tool_call",
+            toolCallId: "tc-1",
+            title: "Read",
+            kind: "unknown",
+            status: "running",
+          },
+        ]),
+      ];
+      const result = updateToolCallStatus(messages, "tc-1", "completed", "file contents");
+      expect(result[0].blocks[0]).toMatchObject({
+        status: "completed",
+        output: "file contents",
+      });
+    });
+
+    it("overrides waiting_confirmation with completed from server", () => {
+      const messages: Message[] = [
+        makeAssistantMessage([
+          {
+            type: "tool_call",
+            toolCallId: "tc-1",
+            title: "Read",
+            kind: "unknown",
+            status: "waiting_confirmation",
+          },
+        ]),
+      ];
+      const result = updateToolCallStatus(messages, "tc-1", "completed");
+      expect(result[0].blocks[0]).toMatchObject({ status: "completed" });
+    });
+
+    it("overrides rejected with completed from server", () => {
+      const messages: Message[] = [
+        makeAssistantMessage([
+          {
+            type: "tool_call",
+            toolCallId: "tc-1",
+            title: "Read",
+            kind: "unknown",
+            status: "rejected",
+          },
+        ]),
+      ];
+      const result = updateToolCallStatus(messages, "tc-1", "completed");
+      expect(result[0].blocks[0]).toMatchObject({ status: "completed" });
+    });
+  });
+
+  describe("setToolCallStatus", () => {
+    it("transitions waiting_confirmation to running", () => {
+      const messages: Message[] = [
+        makeAssistantMessage([
+          {
+            type: "tool_call",
+            toolCallId: "tc-1",
+            title: "Read",
+            kind: "unknown",
+            status: "waiting_confirmation",
+          },
+        ]),
+      ];
+      const result = setToolCallStatus(messages, "tc-1", "running");
+      expect(result[0].blocks[0]).toMatchObject({ status: "running" });
+    });
+
+    it("transitions waiting_confirmation to rejected", () => {
+      const messages: Message[] = [
+        makeAssistantMessage([
+          {
+            type: "tool_call",
+            toolCallId: "tc-1",
+            title: "Read",
+            kind: "unknown",
+            status: "waiting_confirmation",
+          },
+        ]),
+      ];
+      const result = setToolCallStatus(messages, "tc-1", "rejected");
+      expect(result[0].blocks[0]).toMatchObject({ status: "rejected" });
+    });
+
+    it("does not modify unrelated tool calls", () => {
+      const messages: Message[] = [
+        makeAssistantMessage([
+          {
+            type: "tool_call",
+            toolCallId: "tc-1",
+            title: "Read",
+            kind: "unknown",
+            status: "waiting_confirmation",
+          },
+          {
+            type: "tool_call",
+            toolCallId: "tc-2",
+            title: "Bash",
+            kind: "unknown",
+            status: "running",
+          },
+        ]),
+      ];
+      const result = setToolCallStatus(messages, "tc-1", "running");
+      expect(result[0].blocks[1]).toMatchObject({ toolCallId: "tc-2", status: "running" });
+    });
   });
 
   describe("mapAcpStatus", () => {
@@ -171,6 +297,14 @@ describe("messageUpdaters", () => {
 
     it("maps in_progress to running", () => {
       expect(mapAcpStatus("in_progress")).toBe("running");
+    });
+
+    it("maps waiting_confirmation to waiting_confirmation", () => {
+      expect(mapAcpStatus("waiting_confirmation")).toBe("waiting_confirmation");
+    });
+
+    it("maps rejected to rejected", () => {
+      expect(mapAcpStatus("rejected")).toBe("rejected");
     });
 
     it("returns pending for unknown status", () => {

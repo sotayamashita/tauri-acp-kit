@@ -1,4 +1,4 @@
-import { Plus } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import type { ProviderConfig } from "../providers";
 
 interface ProviderDropdownProps {
@@ -16,32 +16,37 @@ export function ProviderDropdown({
   onToggle,
   onSelect,
 }: ProviderDropdownProps) {
+  const selectedLabel = providers.find((p) => p.id === selectedProviderId)?.label ?? "Provider";
+
   return (
     <>
       <button
         type="button"
         onClick={onToggle}
-        className="acp-chat-header-btn"
-        title="Switch provider"
+        className="acp-chat-provider-btn"
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+        aria-label={`Switch provider, current: ${selectedLabel}`}
       >
-        <Plus size={16} />
+        {selectedLabel}
+        <ChevronDown size={14} />
       </button>
-      {isOpen && (
-        <div className="acp-chat-dropdown-menu acp-chat-provider-dropdown" role="listbox">
-          {providers.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              role="option"
-              aria-selected={p.id === selectedProviderId}
-              className={`acp-chat-dropdown-item ${p.id === selectedProviderId ? "selected" : ""}`}
-              onClick={() => onSelect(p.id)}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-      )}
+      <div
+        className={`acp-chat-dropdown-menu acp-chat-provider-dropdown ${isOpen ? "open" : ""}`}
+        role="menu"
+      >
+        {providers.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            role="menuitem"
+            className={`acp-chat-dropdown-item ${p.id === selectedProviderId ? "selected" : ""}`}
+            onClick={() => onSelect(p.id)}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
     </>
   );
 }

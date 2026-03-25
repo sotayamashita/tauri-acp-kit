@@ -26,7 +26,14 @@ export class AcpAgent {
       throw new Error("Agent not spawned");
     }
     const info = await commands.startSession(this._id, cwd);
-    return new AcpSession(info.sessionId, this._id, info.models, info.currentModelId);
+    return new AcpSession(
+      info.sessionId,
+      this._id,
+      info.cwd,
+      info.agentVersion,
+      info.models,
+      info.currentModelId,
+    );
   }
 
   async terminate(): Promise<void> {

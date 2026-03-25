@@ -57,6 +57,23 @@ pub enum AcpEvent {
         #[serde(skip_serializing_if = "Option::is_none")]
         exit_code: Option<i32>,
     },
+    PermissionRequest {
+        session_id: String,
+        request_id: i64,
+        tool_call_id: String,
+        title: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        raw_input: Option<serde_json::Value>,
+        options: Vec<PermissionOption>,
+    },
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub struct PermissionOption {
+    pub option_id: String,
+    pub name: String,
+    pub kind: String,
 }
 
 pub fn emit_event<R: Runtime>(app: &AppHandle<R>, event: AcpEvent) {

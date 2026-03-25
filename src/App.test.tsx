@@ -15,6 +15,8 @@ describe("App", () => {
       "plugin:acp|acp_spawn_agent": () => "test-agent-id",
       "plugin:acp|acp_start_session": () => ({
         sessionId: "test-session-id",
+        cwd: "/tmp/test",
+        agentVersion: "1.0.0",
         models: mockModels,
         currentModelId: "claude-sonnet-4",
       }),
@@ -36,28 +38,32 @@ describe("App", () => {
     expect(screen.queryByText("New Thread")).not.toBeInTheDocument();
   });
 
-  it("+ button in header opens provider dropdown", () => {
+  it("provider button in header opens provider dropdown", () => {
     render(<App />);
-    const plusBtn = screen.getByTitle("Switch provider");
-    fireEvent.click(plusBtn);
+    const providerBtn = screen.getByRole("button", {
+      name: /Switch provider, current: Claude Code/i,
+    });
+    fireEvent.click(providerBtn);
 
-    expect(screen.getByRole("option", { name: /Claude Code/i })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: /Codex/i })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /Claude Code/i })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /Codex/i })).toBeInTheDocument();
   });
 
   it("selecting a provider from header dropdown calls onProviderChange", async () => {
     render(<App />);
-    const plusBtn = screen.getByTitle("Switch provider");
-    fireEvent.click(plusBtn);
+    const providerBtn = screen.getByRole("button", {
+      name: /Switch provider, current: Claude Code/i,
+    });
+    fireEvent.click(providerBtn);
 
-    const codexOption = screen.getByRole("option", { name: /Codex/i });
+    const codexOption = screen.getByRole("menuitem", { name: /Codex/i });
     fireEvent.click(codexOption);
 
     await waitFor(() => {
       expect(localStorage.getItem("acp-provider")).toBe("codex-acp");
     });
     const headerTitle = document.querySelector(".acp-chat-header-title");
-    expect(headerTitle!.textContent).toBe("Codex");
+    expect(headerTitle!.textContent).toContain("Codex");
   });
 
   it("toolbar has no provider dropdown (moved to header)", () => {
@@ -101,10 +107,12 @@ describe("App", () => {
     render(<App />);
     expect(localStorage.getItem("acp-provider")).toBeNull();
 
-    const plusBtn = screen.getByTitle("Switch provider");
-    fireEvent.click(plusBtn);
+    const providerBtn = screen.getByRole("button", {
+      name: /Switch provider, current: Claude Code/i,
+    });
+    fireEvent.click(providerBtn);
 
-    const codexOption = screen.getByRole("option", { name: /Codex/i });
+    const codexOption = screen.getByRole("menuitem", { name: /Codex/i });
     fireEvent.click(codexOption);
 
     await waitFor(() => {
@@ -116,7 +124,7 @@ describe("App", () => {
     localStorage.setItem("acp-provider", "codex-acp");
     render(<App />);
     const headerTitle = document.querySelector(".acp-chat-header-title");
-    expect(headerTitle!.textContent).toBe("Codex");
+    expect(headerTitle!.textContent).toContain("Codex");
   });
 
   it("persists reasoning level to localStorage when changed", async () => {
@@ -127,7 +135,7 @@ describe("App", () => {
     const reasoningBtn = await screen.findByRole("button", { name: /Medium/i });
     fireEvent.click(reasoningBtn);
 
-    const highOption = screen.getByRole("option", { name: /High/i });
+    const highOption = screen.getByRole("menuitem", { name: /High/i });
     fireEvent.click(highOption);
 
     await waitFor(() => {

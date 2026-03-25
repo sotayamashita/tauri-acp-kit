@@ -15,6 +15,7 @@ use tokio::sync::{mpsc, oneshot, RwLock};
 pub enum OutgoingMessage {
     Request(JsonRpcRequest, oneshot::Sender<JsonRpcResponse>),
     Notification(JsonRpcNotification),
+    Response(JsonRpcResponse),
 }
 
 /// A clonable handle to send requests to an agent
@@ -50,6 +51,15 @@ impl AgentHandle {
         response_rx
             .await
             .map_err(|_| Error::Protocol("Failed to receive response".to_string()))
+    }
+
+    /// Send a JSON-RPC response back to the agent (for agent-initiated requests)
+    pub async fn send_response(&self, response: JsonRpcResponse) -> Result<(), Error> {
+        self.message_tx
+            .send(OutgoingMessage::Response(response))
+            .await
+            .map_err(|_| Error::Protocol("Failed to send response".to_string()))?;
+        Ok(())
     }
 
     /// Send a notification (fire-and-forget, no response expected)
@@ -204,6 +214,15 @@ impl AgentProcess {
                         tracing::debug!(method = %notification.method, "Notification sent successfully");
                     }
                 }
+                OutgoingMessage::Response(response) => {
+                    tracing::debug!(id = ?response.id, "Sending response to agent");
+
+                    if let Err(e) = writer.write_message(&response).await {
+                        tracing::error!("Failed to write response: {}", e);
+                    } else {
+                        tracing::debug!(id = ?response.id, "Response sent successfully");
+                    }
+                }
             }
         }
     }
@@ -238,8 +257,21 @@ impl AgentProcess {
                             tracing::debug!(method = %notification.method, "Processing notification");
                             Self::handle_notification(&app, notification);
                         }
-                        JsonRpcMessage::Request(_) => {
-                            tracing::warn!("Received unexpected request from agent");
+                        JsonRpcMessage::Request(request) => {
+                            if request.method == "session/request_permission" {
+                                tracing::info!(
+                                    id = ?request.id,
+                                    "Received permission request from agent"
+                                );
+                                if let Some(event) = parse_permission_request(&request) {
+                                    emit_event(&app, event);
+                                }
+                            } else {
+                                tracing::warn!(
+                                    method = %request.method,
+                                    "Received unexpected request from agent"
+                                );
+                            }
                         }
                     }
                 }
@@ -319,14 +351,30 @@ fn parse_thought_chunk(session_id: String, update: &serde_json::Value) -> Option
     Some(AcpEvent::ThoughtDelta { session_id, text })
 }
 
+/// Look up a field from the update level first, falling back to a nested content object.
+/// claude-code-acp puts fields at the update level, while the original ACP spec nests under content.
+fn get_field<'a>(
+    update: &'a serde_json::Value,
+    content: Option<&'a serde_json::Value>,
+    update_key: &str,
+    content_key: &str,
+) -> Option<&'a serde_json::Value> {
+    update
+        .get(update_key)
+        .or_else(|| content.and_then(|c| c.get(content_key)))
+}
+
 fn parse_tool_call(session_id: String, update: &serde_json::Value) -> Option<AcpEvent> {
-    let content_val = update.get("content")?;
-    let tool_call_id = content_val.get("toolCallId").and_then(|v| v.as_str())?;
-    let tool_name = content_val.get("toolName").and_then(|v| v.as_str())?;
-    let status = content_val
-        .get("status")
+    let content_val = update.get("content");
+    let tool_call_id =
+        get_field(update, content_val, "toolCallId", "toolCallId").and_then(|v| v.as_str())?;
+    let tool_name = get_field(update, content_val, "title", "toolName")
+        .and_then(|v| v.as_str())
+        .unwrap_or("Unknown");
+    let status = get_field(update, content_val, "status", "status")
         .and_then(|v| v.as_str())
         .unwrap_or("pending");
+    let input = get_field(update, content_val, "rawInput", "input").cloned();
     tracing::debug!(
         session_id = %session_id,
         tool_call_id = %tool_call_id,
@@ -339,16 +387,16 @@ fn parse_tool_call(session_id: String, update: &serde_json::Value) -> Option<Acp
         tool_call_id: tool_call_id.to_string(),
         tool_name: tool_name.to_string(),
         status: status.to_string(),
-        input: content_val.get("input").cloned(),
-        content: content_val.get("content").cloned(),
+        input,
+        content: content_val.cloned(),
     })
 }
 
 fn parse_tool_call_update(session_id: String, update: &serde_json::Value) -> Option<AcpEvent> {
-    let content_val = update.get("content")?;
-    let tool_call_id = content_val.get("toolCallId").and_then(|v| v.as_str())?;
-    let status = content_val
-        .get("status")
+    let content_val = update.get("content");
+    let tool_call_id =
+        get_field(update, content_val, "toolCallId", "toolCallId").and_then(|v| v.as_str())?;
+    let status = get_field(update, content_val, "status", "status")
         .and_then(|v| v.as_str())
         .unwrap_or("completed");
     tracing::debug!(
@@ -361,7 +409,7 @@ fn parse_tool_call_update(session_id: String, update: &serde_json::Value) -> Opt
         session_id,
         tool_call_id: tool_call_id.to_string(),
         status: status.to_string(),
-        content: content_val.get("content").cloned(),
+        content: content_val.cloned(),
     })
 }
 
@@ -373,6 +421,51 @@ fn parse_plan(session_id: String, update: &serde_json::Value) -> Option<AcpEvent
         .unwrap_or(serde_json::Value::Array(vec![]));
     tracing::debug!(session_id = %session_id, "Plan update");
     Some(AcpEvent::PlanUpdate { session_id, tasks })
+}
+
+/// Parse a session/request_permission request from the agent into a PermissionRequest event.
+fn parse_permission_request(request: &JsonRpcRequest) -> Option<AcpEvent> {
+    let session_id = request
+        .params
+        .get("sessionId")
+        .and_then(|v| v.as_str())?
+        .to_string();
+    let tool_call = request.params.get("toolCall")?;
+    let tool_call_id = tool_call
+        .get("toolCallId")
+        .and_then(|v| v.as_str())?
+        .to_string();
+    let title = tool_call
+        .get("title")
+        .and_then(|v| v.as_str())
+        .unwrap_or("Unknown")
+        .to_string();
+    let raw_input = tool_call.get("rawInput").cloned();
+    let options = request
+        .params
+        .get("options")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|opt| {
+                    Some(crate::events::PermissionOption {
+                        option_id: opt.get("optionId")?.as_str()?.to_string(),
+                        name: opt.get("name")?.as_str()?.to_string(),
+                        kind: opt.get("kind")?.as_str()?.to_string(),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    Some(AcpEvent::PermissionRequest {
+        session_id,
+        request_id: request.id.as_i64(),
+        tool_call_id,
+        title,
+        raw_input,
+        options,
+    })
 }
 
 /// Parse an ACP notification into an event, if recognized.
