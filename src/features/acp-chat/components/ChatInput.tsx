@@ -122,10 +122,12 @@ export function ChatInput({
               selectedId={currentModelId}
               onSelect={(m) => onModelSelect(m.id)}
               renderLabel={(m) =>
-                selectedProvider?.id === "claude-code-acp" && m.description ? (
-                  <span className="acp-chat-model-option">
-                    <span className="acp-chat-model-option-name">{m.name}</span>
-                    <span className="acp-chat-model-option-desc">{m.description}</span>
+                m.description ? (
+                  <span className="flex flex-col gap-0.5">
+                    <span className="font-medium">{m.name}</span>
+                    <span className="text-[11px] leading-tight text-muted-foreground">
+                      {m.description}
+                    </span>
                   </span>
                 ) : (
                   m.name

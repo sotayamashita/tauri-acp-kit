@@ -32,7 +32,7 @@ export function ProviderDropdown({
           </Button>
         }
       />
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" className="w-auto min-w-40">
         <DropdownMenuRadioGroup
           value={selectedProviderId ?? ""}
           onValueChange={(value) => {

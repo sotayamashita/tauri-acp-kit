@@ -41,7 +41,12 @@ export function DropdownSelect<T>({
       >
         <SelectValue placeholder={triggerLabel} />
       </SelectTrigger>
-      <SelectContent side="top" align="start">
+      <SelectContent
+        side="top"
+        align="start"
+        className="w-auto min-w-44"
+        alignItemWithTrigger={false}
+      >
         <SelectGroup>
           {items.map((item) => {
             const id = getItemId(item);
