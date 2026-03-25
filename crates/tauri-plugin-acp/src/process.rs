@@ -366,8 +366,8 @@ fn get_field<'a>(
 
 fn parse_tool_call(session_id: String, update: &serde_json::Value) -> Option<AcpEvent> {
     let content_val = update.get("content");
-    let tool_call_id = get_field(update, content_val, "toolCallId", "toolCallId")
-        .and_then(|v| v.as_str())?;
+    let tool_call_id =
+        get_field(update, content_val, "toolCallId", "toolCallId").and_then(|v| v.as_str())?;
     let tool_name = get_field(update, content_val, "title", "toolName")
         .and_then(|v| v.as_str())
         .unwrap_or("Unknown");
@@ -394,8 +394,8 @@ fn parse_tool_call(session_id: String, update: &serde_json::Value) -> Option<Acp
 
 fn parse_tool_call_update(session_id: String, update: &serde_json::Value) -> Option<AcpEvent> {
     let content_val = update.get("content");
-    let tool_call_id = get_field(update, content_val, "toolCallId", "toolCallId")
-        .and_then(|v| v.as_str())?;
+    let tool_call_id =
+        get_field(update, content_val, "toolCallId", "toolCallId").and_then(|v| v.as_str())?;
     let status = get_field(update, content_val, "status", "status")
         .and_then(|v| v.as_str())
         .unwrap_or("completed");
