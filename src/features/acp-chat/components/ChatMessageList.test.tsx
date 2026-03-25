@@ -77,12 +77,14 @@ describe("ChatMessageList", () => {
     expect(screen.getByText("Read")).toBeInTheDocument();
   });
 
-  it("scroll-to-bottom FAB is not visible initially", () => {
+  it("scroll-to-bottom FAB is hidden initially", () => {
     const messages: Message[] = [
       makeMessage({ role: "user", blocks: [{ type: "text", text: "Hello" }] }),
     ];
     renderList({ messages });
-    expect(screen.queryByLabelText("Scroll to bottom")).not.toBeInTheDocument();
+    const fab = screen.getByLabelText("Scroll to bottom");
+    expect(fab).toBeInTheDocument();
+    expect(fab.className).not.toContain("visible");
   });
 
   it("calls scrollIntoView on mount", () => {

@@ -64,6 +64,7 @@ export function ChatMessageList({
         <div className="acp-chat-empty">
           {isReady ? (
             <div className="acp-chat-empty-content">
+              <p className="acp-chat-empty-hint">Ask a question or describe a task</p>
               {cwd ? <p className="acp-chat-empty-cwd">Your working directory is {cwd}</p> : null}
             </div>
           ) : (
@@ -102,17 +103,16 @@ export function ChatMessageList({
       <div ref={messagesEndRef} />
 
       {/* Scroll-to-bottom FAB */}
-      {showScrollFab && messages.length > 0 ? (
-        <button
-          type="button"
-          className="acp-chat-scroll-fab"
-          onClick={scrollToBottom}
-          aria-label="Scroll to bottom"
-          title="Scroll to bottom"
-        >
-          <ArrowDown size={16} />
-        </button>
-      ) : null}
+      <button
+        type="button"
+        className={`acp-chat-scroll-fab ${showScrollFab && messages.length > 0 ? "visible" : ""}`}
+        onClick={scrollToBottom}
+        aria-label="Scroll to bottom"
+        title="Scroll to bottom"
+        tabIndex={showScrollFab && messages.length > 0 ? 0 : -1}
+      >
+        <ArrowDown size={16} />
+      </button>
     </div>
   );
 }
