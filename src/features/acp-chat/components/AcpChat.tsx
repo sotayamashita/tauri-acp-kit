@@ -12,7 +12,7 @@ import type { AgentSpec } from "tauri-acp";
 import type { ProviderConfig } from "../providers";
 import { AgentSetupStatus } from "./AgentSetupStatus";
 import { DownloadProgress } from "./DownloadProgress";
-import { RotateCcw, Sun, Moon } from "lucide-react";
+import { Info, RotateCcw, Sun, Moon } from "lucide-react";
 import "./AcpChat.css";
 
 interface AcpChatProps {
@@ -51,6 +51,7 @@ export function AcpChat({
     reasoningLevels,
     resolvedCwd,
     agentVersion,
+    cliVersion,
     approveToolCall,
     rejectToolCall,
     append,
@@ -62,6 +63,7 @@ export function AcpChat({
     agentSpec,
     cwd,
     supportsReasoningLevel: selectedProvider?.supportsReasoningLevel,
+    cliExecutable: selectedProvider?.cliExecutable,
   });
 
   const { theme, toggleTheme } = useTheme();
@@ -103,9 +105,25 @@ export function AcpChat({
         <div className="acp-chat-header-left">
           <span className="acp-chat-header-title">
             {selectedProvider?.label || "Chat"}
-            {agentVersion ? (
-              <span className="acp-chat-header-version">({agentVersion})</span>
-            ) : null}
+            {(cliVersion || agentVersion) && (
+              <span className="acp-chat-header-info">
+                <Info size={13} />
+                <span className="acp-chat-header-info-tooltip">
+                  {cliVersion && (
+                    <>
+                      <span>{selectedProvider?.label || "CLI"}</span>
+                      <span>{cliVersion}</span>
+                    </>
+                  )}
+                  {agentVersion && (
+                    <>
+                      <span>ACP adapter</span>
+                      <span>{agentVersion}</span>
+                    </>
+                  )}
+                </span>
+              </span>
+            )}
           </span>
           <StatusBar connectionStatus={connectionStatus} />
         </div>

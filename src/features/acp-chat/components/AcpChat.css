@@ -169,16 +169,43 @@
 }
 
 .acp-chat-header-title {
+  display: flex;
+  align-items: center;
   font-size: 14px;
   font-weight: 500;
   color: var(--chat-text);
 }
 
-.acp-chat-header-version {
+.acp-chat-header-info {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
   margin-left: 4px;
-  font-weight: 400;
+  color: var(--chat-text-secondary);
+  cursor: default;
+}
+
+.acp-chat-header-info-tooltip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  padding: 6px 10px;
+  background: var(--chat-bg-secondary, var(--chat-bg));
+  border: 1px solid var(--chat-border);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   font-size: 12px;
   color: var(--chat-text-secondary);
+  white-space: nowrap;
+  z-index: 10;
+  grid-template-columns: auto auto;
+  column-gap: 8px;
+  row-gap: 2px;
+}
+
+.acp-chat-header-info:hover .acp-chat-header-info-tooltip {
+  display: grid;
 }
 
 .acp-chat-status {

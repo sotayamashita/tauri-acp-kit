@@ -5,6 +5,7 @@ export interface ProviderConfig {
   label: string;
   agentSpec: AgentSpec;
   supportsReasoningLevel: boolean;
+  cliExecutable?: string;
 }
 
 export const REASONING_LEVELS = ["low", "medium", "high"] as const;
@@ -16,11 +17,13 @@ export const PROVIDERS: ProviderConfig[] = [
     label: "Claude Code",
     agentSpec: { id: "claude-code-acp", executable: "claude-code-acp", args: [] },
     supportsReasoningLevel: false,
+    cliExecutable: "claude",
   },
   {
     id: "codex-acp",
     label: "Codex",
     agentSpec: { id: "codex-acp", executable: "codex-acp", args: [] },
     supportsReasoningLevel: true,
+    cliExecutable: "codex",
   },
 ];
