@@ -93,6 +93,7 @@ function CodeBlock({ language, children }: CodeBlockProps) {
           onClick={handleCopy}
           className="code-copy-button"
           title={copied ? "Copied!" : "Copy"}
+          aria-label={copied ? "Copied!" : "Copy code"}
         >
           {copied ? <Check size={14} /> : <Copy size={14} />}
         </button>

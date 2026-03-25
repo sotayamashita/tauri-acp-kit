@@ -14,15 +14,10 @@
   --chat-accent: #8b7355;
   --chat-accent-hover: #6b5545;
   --chat-accent-alpha-10: rgba(139, 115, 85, 0.1);
-  --chat-accent-alpha-08: rgba(139, 115, 85, 0.08);
   --chat-accent-alpha-06: rgba(139, 115, 85, 0.06);
   --chat-code-bg: #e5dfd0;
   --chat-code-header-bg: #ddd7c8;
   --chat-surface-alt: #ebe6dc;
-  --chat-error: #d64545;
-  --chat-error-bg: #f5e6e6;
-  --chat-error-border: #e0c8c8;
-  --chat-error-text: #8b5555;
   --chat-success: #4a7c4e;
   --chat-thinking-border: #c4b99a;
   --chat-tool-pending: #b89b6a;
@@ -33,17 +28,13 @@
   --chat-tool-rejected: #a0522d;
   --chat-tool-content-bg: #f0ebe0;
   --chat-plan-task-border: #eae5da;
-  --chat-disabled: #c4bfb0;
   --chat-placeholder: #9e9e9e;
   --chat-focus-border: #b8b0a0;
   --chat-toolbar-border: #e8e0d8;
-  --chat-stop: #b85555;
-  --chat-stop-alpha-10: rgba(184, 85, 85, 0.1);
   --chat-pending-icon: #999;
   --chat-scrollbar: #d4cfc0;
   --chat-scrollbar-hover: #b8b0a0;
   --chat-overlay: rgba(0, 0, 0, 0.08);
-  --chat-overlay-subtle: rgba(0, 0, 0, 0.05);
 
   /* Prism syntax highlighting */
   --chat-prism-text: #2d2d2d;
@@ -69,15 +60,10 @@
   --chat-accent: #c4a87a;
   --chat-accent-hover: #d4b88a;
   --chat-accent-alpha-10: rgba(196, 168, 122, 0.15);
-  --chat-accent-alpha-08: rgba(196, 168, 122, 0.12);
   --chat-accent-alpha-06: rgba(196, 168, 122, 0.08);
   --chat-code-bg: #2d2d2d;
   --chat-code-header-bg: #333333;
   --chat-surface-alt: #2a2a2a;
-  --chat-error: #e06060;
-  --chat-error-bg: #3a2020;
-  --chat-error-border: #4a2828;
-  --chat-error-text: #e06060;
   --chat-success: #6aaf6e;
   --chat-thinking-border: #4a4a3a;
   --chat-tool-pending: #c4a87a;
@@ -88,17 +74,13 @@
   --chat-tool-rejected: #c06040;
   --chat-tool-content-bg: #2a2a2a;
   --chat-plan-task-border: #333333;
-  --chat-disabled: #555555;
   --chat-placeholder: #666666;
   --chat-focus-border: #555555;
   --chat-toolbar-border: #333333;
-  --chat-stop: #e06060;
-  --chat-stop-alpha-10: rgba(224, 96, 96, 0.15);
   --chat-pending-icon: #777777;
   --chat-scrollbar: #3a3a3a;
   --chat-scrollbar-hover: #555555;
   --chat-overlay: rgba(255, 255, 255, 0.08);
-  --chat-overlay-subtle: rgba(255, 255, 255, 0.05);
 
   /* Prism syntax highlighting */
   --chat-prism-text: #e0e0e0;
