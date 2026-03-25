@@ -16,7 +16,6 @@ interface DropdownSelectProps<T> {
   getItemId: (item: T) => string;
   triggerLabel: string;
   disabled?: boolean;
-  className?: string;
 }
 
 export function DropdownSelect<T>({

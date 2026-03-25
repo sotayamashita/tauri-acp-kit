@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
@@ -34,20 +33,18 @@ export function ProviderDropdown({
         }
       />
       <DropdownMenuContent align="end">
-        <DropdownMenuGroup>
-          <DropdownMenuRadioGroup
-            value={selectedProviderId ?? ""}
-            onValueChange={(value) => {
-              if (value) onSelect(value);
-            }}
-          >
-            {providers.map((p) => (
-              <DropdownMenuRadioItem key={p.id} value={p.id}>
-                {p.label}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuGroup>
+        <DropdownMenuRadioGroup
+          value={selectedProviderId ?? ""}
+          onValueChange={(value) => {
+            if (value) onSelect(value);
+          }}
+        >
+          {providers.map((p) => (
+            <DropdownMenuRadioItem key={p.id} value={p.id}>
+              {p.label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );
