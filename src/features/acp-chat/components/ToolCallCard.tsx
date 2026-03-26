@@ -4,6 +4,14 @@ import { ChevronDown, ChevronUp, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
+function PreBlock({ children }: { children: string }) {
+  return (
+    <div className="overflow-x-auto border-t bg-[var(--chat-tool-content-bg)] px-2.5 py-2">
+      <pre className="m-0 text-[13px] break-all whitespace-pre-wrap">{children}</pre>
+    </div>
+  );
+}
+
 interface ToolCallCardProps {
   toolCallId: string;
   title: string;
@@ -107,11 +115,7 @@ export function ToolCallCard({
         </span>
         {hasCollapsibleContent && (isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}
       </button>
-      {isWaiting && input && (
-        <div className="overflow-x-auto border-t bg-[var(--chat-tool-content-bg)] px-2.5 py-2">
-          <pre className="m-0 text-[13px] break-all whitespace-pre-wrap">{input}</pre>
-        </div>
-      )}
+      {isWaiting && input && <PreBlock>{input}</PreBlock>}
       {isWaiting && (
         <div className="flex gap-2 border-t px-2.5 py-2">
           <Button size="sm" onClick={handleApprove} disabled={actionTaken}>
@@ -122,11 +126,7 @@ export function ToolCallCard({
           </Button>
         </div>
       )}
-      {isOpen && output && !isWaiting && (
-        <div className="overflow-x-auto border-t bg-[var(--chat-tool-content-bg)] px-2.5 py-2">
-          <pre className="m-0 text-[13px] break-all whitespace-pre-wrap">{output}</pre>
-        </div>
-      )}
+      {isOpen && output && !isWaiting && <PreBlock>{output}</PreBlock>}
     </div>
   );
 }

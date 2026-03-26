@@ -93,9 +93,7 @@ export function ChatMessageList({
               ) : null}
             </div>
           ) : (
-            <div className="acp-chat-message-user">
-              <span>{getMessageText(msg)}</span>
-            </div>
+            <div className="acp-chat-message-user">{getMessageText(msg)}</div>
           )}
         </div>
       ))}
