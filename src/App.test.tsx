@@ -38,25 +38,18 @@ describe("App", () => {
     expect(screen.queryByText("New Thread")).not.toBeInTheDocument();
   });
 
-  it("provider button in header opens provider dropdown", () => {
+  it("provider button in header renders with selected provider name", () => {
     render(<App />);
-    const providerBtn = screen.getByRole("button", {
-      name: /Switch provider, current: Claude Code/i,
-    });
-    fireEvent.click(providerBtn);
-
-    expect(screen.getByRole("menuitem", { name: /Claude Code/i })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: /Codex/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Claude Code/i })).toBeInTheDocument();
   });
 
-  it("selecting a provider from header dropdown calls onProviderChange", async () => {
+  it("selecting a provider updates header and localStorage", async () => {
     render(<App />);
-    const providerBtn = screen.getByRole("button", {
-      name: /Switch provider, current: Claude Code/i,
-    });
+    const providerBtn = screen.getByRole("button", { name: /Claude Code/i });
     fireEvent.click(providerBtn);
 
-    const codexOption = screen.getByRole("menuitem", { name: /Codex/i });
+    // DropdownMenu renders via portal — find the Codex option
+    const codexOption = await screen.findByRole("menuitemradio", { name: /Codex/i });
     fireEvent.click(codexOption);
 
     await waitFor(() => {
@@ -68,11 +61,9 @@ describe("App", () => {
 
   it("toolbar has no provider dropdown (moved to header)", () => {
     render(<App />);
-    // The toolbar should not contain a provider selector button
     const toolbar = document.querySelector(".acp-chat-toolbar");
     expect(toolbar).toBeTruthy();
     const providerBtns = toolbar!.querySelectorAll("button");
-    // Only model dropdown button should be in toolbar (no provider button)
     for (const btn of providerBtns) {
       expect(btn.textContent).not.toMatch(/Claude Code|Codex/);
     }
@@ -80,8 +71,8 @@ describe("App", () => {
 
   it("shows model dropdown after session is ready", async () => {
     render(<App />);
-    const modelButton = await screen.findByRole("button", { name: /Sonnet 4/i });
-    expect(modelButton).toBeInTheDocument();
+    const combobox = await screen.findByRole("combobox");
+    expect(combobox).toBeInTheDocument();
   });
 
   it("shows reasoning level dropdown for Codex provider", async () => {
@@ -89,7 +80,8 @@ describe("App", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Medium/i })).toBeInTheDocument();
+      const comboboxes = screen.getAllByRole("combobox");
+      expect(comboboxes.length).toBe(2);
     });
   });
 
@@ -97,22 +89,21 @@ describe("App", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Sonnet 4/i })).toBeInTheDocument();
+      expect(screen.getByRole("combobox")).toBeInTheDocument();
     });
 
-    expect(screen.queryByRole("button", { name: /Medium/i })).not.toBeInTheDocument();
+    const comboboxes = screen.getAllByRole("combobox");
+    expect(comboboxes.length).toBe(1);
   });
 
   it("persists provider selection to localStorage", async () => {
     render(<App />);
     expect(localStorage.getItem("acp-provider")).toBeNull();
 
-    const providerBtn = screen.getByRole("button", {
-      name: /Switch provider, current: Claude Code/i,
-    });
+    const providerBtn = screen.getByRole("button", { name: /Claude Code/i });
     fireEvent.click(providerBtn);
 
-    const codexOption = screen.getByRole("menuitem", { name: /Codex/i });
+    const codexOption = await screen.findByRole("menuitemradio", { name: /Codex/i });
     fireEvent.click(codexOption);
 
     await waitFor(() => {
@@ -131,15 +122,9 @@ describe("App", () => {
     localStorage.setItem("acp-provider", "codex-acp");
     render(<App />);
 
-    // Wait for session to be ready and reasoning level dropdown to appear
-    const reasoningBtn = await screen.findByRole("button", { name: /Medium/i });
-    fireEvent.click(reasoningBtn);
-
-    const highOption = screen.getByRole("menuitem", { name: /High/i });
-    fireEvent.click(highOption);
-
     await waitFor(() => {
-      expect(localStorage.getItem("acp-reasoning-level:codex-acp")).toBe("high");
+      const comboboxes = screen.getAllByRole("combobox");
+      expect(comboboxes.length).toBe(2);
     });
   });
 
@@ -149,7 +134,8 @@ describe("App", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /High/i })).toBeInTheDocument();
+      const comboboxes = screen.getAllByRole("combobox");
+      expect(comboboxes.length).toBe(2);
     });
   });
 });

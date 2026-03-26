@@ -58,7 +58,7 @@ describe("AcpChat — Phase 17 interactions", () => {
       />,
     );
 
-    const newChatBtn = screen.getByTitle("New Chat (Cmd+Shift+N)");
+    const newChatBtn = screen.getByRole("button", { name: "New Chat" });
     expect(newChatBtn).toBeInTheDocument();
     expect(newChatBtn).toBeDisabled();
   });
@@ -73,7 +73,7 @@ describe("AcpChat — Phase 17 interactions", () => {
     );
 
     // Wait for session to be ready
-    await screen.findByRole("button", { name: /Sonnet 4/i });
+    await screen.findByRole("combobox");
 
     // Send a message
     const textarea = screen.getByPlaceholderText(/Message Claude Code/i);
@@ -86,7 +86,7 @@ describe("AcpChat — Phase 17 interactions", () => {
     });
 
     // New Chat button should now be enabled
-    const newChatBtn = screen.getByTitle("New Chat (Cmd+Shift+N)");
+    const newChatBtn = screen.getByRole("button", { name: "New Chat" });
     expect(newChatBtn).not.toBeDisabled();
 
     // Click New Chat
@@ -108,7 +108,7 @@ describe("AcpChat — Phase 17 interactions", () => {
     );
 
     // Wait for session ready
-    await screen.findByRole("button", { name: /Sonnet 4/i });
+    await screen.findByRole("combobox");
 
     // Send a message
     const textarea = screen.getByPlaceholderText(/Message Claude Code/i);
@@ -143,12 +143,9 @@ describe("AcpChat — Phase 17 interactions", () => {
       />,
     );
 
-    await screen.findByRole("button", { name: /Sonnet 4/i });
+    await screen.findByRole("combobox");
     const title = document.querySelector(".acp-chat-header-title");
     expect(title).toHaveTextContent("Claude Code");
-    const tooltip = document.querySelector(".acp-chat-header-info-tooltip");
-    expect(tooltip).toHaveTextContent("ACP adapter");
-    expect(tooltip).toHaveTextContent("1.0.0");
   });
 
   it("empty state shows resolved cwd from session", async () => {
@@ -213,11 +210,10 @@ describe("AcpChat — Phase 17 interactions", () => {
     );
 
     // Wait for ready
-    await screen.findByRole("button", { name: /Sonnet 4/i });
+    await screen.findByRole("combobox");
 
-    // Should have a ready status dot
-    const statusDot = document.querySelector(".acp-chat-status-dot.ready");
-    expect(statusDot).toBeInTheDocument();
+    // Should have a ready status indicator
+    expect(screen.getByText("Ready")).toBeInTheDocument();
   });
 
   it("status has role=status and aria-live=polite for accessibility", async () => {

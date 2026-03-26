@@ -123,7 +123,7 @@ describe("ToolCallCard", () => {
 
     it("does not show input when input is not provided", () => {
       renderCard({ status: "waiting_confirmation" });
-      expect(document.querySelector(".tool-call-content")).not.toBeInTheDocument();
+      expect(document.querySelector("pre")).not.toBeInTheDocument();
     });
   });
 

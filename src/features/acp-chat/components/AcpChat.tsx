@@ -1,7 +1,6 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useEffect, useCallback } from "react";
 import { useAcpChat } from "../hooks/useAcpChat";
 import { useTheme } from "../hooks/useTheme";
-import { useClickOutside } from "../hooks/useClickOutside";
 import { deriveConnectionStatus } from "../utils/connectionStatus";
 import { ChatMessageList } from "./ChatMessageList";
 import { ChatInput } from "./ChatInput";
@@ -13,6 +12,8 @@ import type { ProviderConfig } from "../providers";
 import { AgentSetupStatus } from "./AgentSetupStatus";
 import { DownloadProgress } from "./DownloadProgress";
 import { Info, RotateCcw, Sun, Moon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import "./AcpChat.css";
 
 interface AcpChatProps {
@@ -67,10 +68,6 @@ export function AcpChat({
   });
 
   const { theme, toggleTheme } = useTheme();
-  const [providerOpen, setProviderOpen] = useState(false);
-  const providerRef = useRef<HTMLDivElement>(null);
-  const closeProviderDropdown = useCallback(() => setProviderOpen(false), []);
-  useClickOutside(providerRef, closeProviderDropdown, providerOpen);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -94,119 +91,143 @@ export function AcpChat({
   const handleProviderSelect = useCallback(
     (providerId: string) => {
       onProviderChange?.(providerId);
-      setProviderOpen(false);
     },
     [onProviderChange],
   );
 
   return (
-    <div className="acp-chat" data-theme={theme}>
-      <header className="acp-chat-header">
-        <div className="acp-chat-header-left">
-          <span className="acp-chat-header-title">
-            {selectedProvider?.label || "Chat"}
-            {(cliVersion || agentVersion) && (
-              <span className="acp-chat-header-info">
-                <Info size={13} />
-                <span className="acp-chat-header-info-tooltip">
-                  {cliVersion && (
-                    <>
-                      <span>{selectedProvider?.label || "CLI"}</span>
-                      <span>{cliVersion}</span>
-                    </>
-                  )}
-                  {agentVersion && (
-                    <>
-                      <span>ACP adapter</span>
-                      <span>{agentVersion}</span>
-                    </>
-                  )}
-                </span>
-              </span>
-            )}
-          </span>
-          <StatusBar connectionStatus={connectionStatus} />
-        </div>
+    <TooltipProvider>
+      <div className="acp-chat" data-theme={theme}>
+        <header className="acp-chat-header">
+          <div className="acp-chat-header-left">
+            <span className="acp-chat-header-title">
+              {selectedProvider?.label || "Chat"}
+              {(cliVersion || agentVersion) && (
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <span
+                        tabIndex={0}
+                        className="ml-1 inline-flex cursor-default items-center text-muted-foreground"
+                      >
+                        <Info size={13} />
+                      </span>
+                    }
+                  />
+                  <TooltipContent
+                    side="bottom"
+                    align="start"
+                    className="grid grid-cols-[auto_auto] gap-x-2 gap-y-0.5"
+                  >
+                    {cliVersion && (
+                      <>
+                        <span>{selectedProvider?.label || "CLI"}</span>
+                        <span>{cliVersion}</span>
+                      </>
+                    )}
+                    {agentVersion && (
+                      <>
+                        <span>ACP adapter</span>
+                        <span>{agentVersion}</span>
+                      </>
+                    )}
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </span>
+            <StatusBar connectionStatus={connectionStatus} />
+          </div>
 
-        <div className="acp-chat-header-right">
-          <button
-            type="button"
-            onClick={reset}
-            className="acp-chat-header-btn"
-            title="New Chat (Cmd+Shift+N)"
-            aria-label="New Chat"
-            disabled={messages.length === 0}
-          >
-            <RotateCcw size={14} />
-          </button>
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="acp-chat-header-btn"
-            title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
-            aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
-          >
-            {theme === "light" ? <Moon size={14} /> : <Sun size={14} />}
-          </button>
-          <div className="acp-chat-dropdown-wrapper" ref={providerRef}>
+          <div className="acp-chat-header-right">
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={reset}
+                    aria-label="New Chat"
+                    disabled={messages.length === 0}
+                  >
+                    <RotateCcw size={14} />
+                  </Button>
+                }
+              />
+              <TooltipContent>New Chat (Cmd+Shift+N)</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={toggleTheme}
+                    aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+                  >
+                    {theme === "light" ? <Moon size={14} /> : <Sun size={14} />}
+                  </Button>
+                }
+              />
+              <TooltipContent>
+                {theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+              </TooltipContent>
+            </Tooltip>
             <ProviderDropdown
               providers={providers ?? []}
               selectedProviderId={selectedProviderId}
-              isOpen={providerOpen}
-              onToggle={() => setProviderOpen(!providerOpen)}
               onSelect={handleProviderSelect}
             />
           </div>
-        </div>
-      </header>
+        </header>
 
-      {isDownloading && downloadProgress && (
-        <DownloadProgress
-          progress={downloadProgress}
-          label={selectedProvider?.label || agentSpec.id}
-        />
-      )}
+        {isDownloading && downloadProgress && (
+          <DownloadProgress
+            progress={downloadProgress}
+            label={selectedProvider?.label || agentSpec.id}
+          />
+        )}
 
-      {spawnFailed && !isDownloading && (
-        <AgentSetupStatus
-          agentId={agentSpec.id}
-          label={selectedProvider?.label || agentSpec.id}
-          executable={agentSpec.executable}
-          onCheckAgain={retry}
-          onDownload={download}
-          isDownloading={isDownloading}
-        />
-      )}
+        {spawnFailed && !isDownloading && (
+          <AgentSetupStatus
+            agentId={agentSpec.id}
+            label={selectedProvider?.label || agentSpec.id}
+            executable={agentSpec.executable}
+            onCheckAgain={retry}
+            onDownload={download}
+            isDownloading={isDownloading}
+          />
+        )}
 
-      {!spawnFailed && !isDownloading && (
-        <ChatMessageList
-          messages={messages}
+        {!spawnFailed && !isDownloading && (
+          <ChatMessageList
+            messages={messages}
+            isReady={isReady}
+            isLoading={isLoading}
+            cwd={resolvedCwd ?? undefined}
+            onApproveToolCall={approveToolCall}
+            onRejectToolCall={rejectToolCall}
+          />
+        )}
+
+        <ErrorBanner error={error} />
+
+        <ChatInput
+          input={input}
+          setInput={setInput}
           isReady={isReady}
           isLoading={isLoading}
-          cwd={resolvedCwd ?? undefined}
-          onApproveToolCall={approveToolCall}
-          onRejectToolCall={rejectToolCall}
+          onSubmit={append}
+          onStop={stop}
+          availableModels={availableModels}
+          currentModelId={currentModelId}
+          currentModelName={currentModelName}
+          onModelSelect={setModel}
+          selectedProvider={selectedProvider}
+          reasoningLevel={reasoningLevel}
+          reasoningLevels={reasoningLevels}
+          onReasoningSelect={setReasoningLevel}
         />
-      )}
-
-      <ErrorBanner error={error} />
-
-      <ChatInput
-        input={input}
-        setInput={setInput}
-        isReady={isReady}
-        isLoading={isLoading}
-        onSubmit={append}
-        onStop={stop}
-        availableModels={availableModels}
-        currentModelId={currentModelId}
-        currentModelName={currentModelName}
-        onModelSelect={setModel}
-        selectedProvider={selectedProvider}
-        reasoningLevel={reasoningLevel}
-        reasoningLevels={reasoningLevels}
-        onReasoningSelect={setReasoningLevel}
-      />
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }

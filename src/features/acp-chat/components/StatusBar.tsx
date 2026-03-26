@@ -1,8 +1,19 @@
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import type { ConnectionStatus } from "../utils/connectionStatus";
 
 export function StatusBar({ connectionStatus }: { connectionStatus: ConnectionStatus }) {
   return (
-    <span className={`acp-chat-status ${connectionStatus}`} role="status" aria-live="polite">
+    <Badge
+      variant="ghost"
+      className={cn(
+        "gap-1.5 text-xs font-normal tabular-nums",
+        (connectionStatus === "connecting" || connectionStatus === "generating") && "animate-pulse",
+        connectionStatus === "error" && "text-destructive",
+      )}
+      role="status"
+      aria-live="polite"
+    >
       {connectionStatus === "downloading" ? (
         "Downloading…"
       ) : connectionStatus === "connecting" ? (
@@ -11,15 +22,15 @@ export function StatusBar({ connectionStatus }: { connectionStatus: ConnectionSt
         "Generating…"
       ) : connectionStatus === "error" ? (
         <>
-          <span className="acp-chat-status-dot error" aria-hidden="true" />
+          <span className="size-1.5 rounded-full bg-destructive" aria-hidden="true" />
           Disconnected
         </>
       ) : (
         <>
-          <span className="acp-chat-status-dot ready" aria-hidden="true" />
+          <span className="size-1.5 rounded-full bg-[var(--chat-success)]" aria-hidden="true" />
           <span className="sr-only">Ready</span>
         </>
       )}
-    </span>
+    </Badge>
   );
 }

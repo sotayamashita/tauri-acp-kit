@@ -1,5 +1,6 @@
 import type { DownloadProgress as DownloadProgressType } from "tauri-acp";
 import { Download } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 
 interface DownloadProgressProps {
   progress: DownloadProgressType;
@@ -32,23 +33,16 @@ export function DownloadProgress({ progress, label }: DownloadProgressProps) {
   const phase = phaseLabel(progress.phase, percentage);
 
   return (
-    <div className="download-progress" role="status" aria-live="polite">
-      <Download size={24} className="download-progress-icon" aria-hidden="true" />
-      <h2 className="download-progress-title">Setting up {label}</h2>
-      <p className="download-progress-phase">{phase}</p>
+    <div
+      className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center"
+      role="status"
+      aria-live="polite"
+    >
+      <Download size={24} className="animate-pulse text-muted-foreground" aria-hidden="true" />
+      <h2 className="text-lg font-semibold">Setting up {label}</h2>
+      <p className="text-sm text-muted-foreground">{phase}</p>
       {progress.phase === "downloading" && (
-        <div
-          className="download-progress-bar"
-          role="progressbar"
-          aria-valuenow={percentage ?? 0}
-          aria-valuemin={0}
-          aria-valuemax={100}
-        >
-          <div
-            className="download-progress-fill"
-            style={{ width: percentage !== null ? `${percentage}%` : "30%" }}
-          />
-        </div>
+        <Progress value={percentage ?? 0} className="w-full max-w-xs" />
       )}
     </div>
   );
